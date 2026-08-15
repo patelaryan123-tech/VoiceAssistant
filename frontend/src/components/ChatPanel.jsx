@@ -1,35 +1,68 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, User, Bot, Check, Trash2, Cloud, Newspaper, Cpu, Globe, Clapperboard, BarChart3, Bell, Brain, TrendingUp, TrendingDown, Sun } from 'lucide-react';
+import {
+  Mic, User, Bot, Check, Trash2, Cloud, Newspaper, Cpu, Globe,
+  Clapperboard, BarChart3, Bell, Brain, TrendingUp, TrendingDown, Sun,
+  Copy, CheckCheck, Shield, Zap,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ── Weather Card ─────────────────────────────────────────────────────────
+// ── Copy button ───────────────────────────────────────────────
+const CopyBtn = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  const handle = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button onClick={handle} className="msg-copy-btn" title="Copy">
+      {copied
+        ? <CheckCheck style={{ width: 10, height: 10, color: '#00ff88' }} />
+        : <Copy style={{ width: 10, height: 10 }} />
+      }
+    </button>
+  );
+};
+
+// ── Timestamp ─────────────────────────────────────────────────
+const Timestamp = ({ iso }) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return <span className="msg-timestamp" title={d.toLocaleString()}>{time}</span>;
+};
+
+// ── Weather Card ──────────────────────────────────────────────
 const WeatherCard = ({ data }) => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   return (
     <div className="weather-card mt-2">
       <div className="flex items-center gap-3">
-        <Cloud className="w-8 h-8" style={{ color: 'var(--color-info)' }} />
+        <Cloud style={{ width: 28, height: 28, color: '#00d4ff' }} />
         <div>
-          <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{data.city}</p>
-          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{data.condition}</p>
+          <p className="font-semibold text-sm" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', letterSpacing: '1px' }}>{data.city}</p>
+          <p className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-dim)' }}>{data.condition}</p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-2xl font-bold gradient-text">{data.temp}°C</p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>💧{data.humidity}% · 💨{data.wind}km/h</p>
+          <p className="text-2xl font-bold" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', textShadow: '0 0 10px rgba(0,212,255,0.6)' }}>{data.temp}°C</p>
+          <p className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-muted)' }}>
+            💧{data.humidity}% &nbsp;·&nbsp; 💨{data.wind} km/h
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-// ── News Card ─────────────────────────────────────────────────────────────
+// ── News Card ─────────────────────────────────────────────────
 const NewsCard = ({ data }) => {
   if (!Array.isArray(data) || data.length === 0) return null;
   return (
     <div className="news-card mt-2 space-y-1.5">
       {data.map((headline, i) => (
-        <div key={i} className="flex items-start gap-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-          <span className="shrink-0 font-bold" style={{ color: 'var(--color-accent1)' }}>{i + 1}.</span>
+        <div key={i} className="flex items-start gap-2 text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-dim)' }}>
+          <span className="shrink-0 font-bold" style={{ color: '#00d4ff' }}>{i + 1}.</span>
           <span>{headline}</span>
         </div>
       ))}
@@ -37,14 +70,14 @@ const NewsCard = ({ data }) => {
   );
 };
 
-// ── File List ─────────────────────────────────────────────────────────────
+// ── File List ─────────────────────────────────────────────────
 const FileListCard = ({ data }) => {
   if (!Array.isArray(data) || data.length === 0) return null;
   return (
     <div className="mt-2 space-y-1">
       {data.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 rounded-md" style={{ background: 'var(--bg-input)', color: 'var(--text-dim)' }}>
-          <span style={{ color: 'var(--color-accent2)' }}>📄</span>
+        <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 rounded" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-dim)' }}>
+          <span style={{ color: '#00d4ff' }}>▸</span>
           <span>{typeof item === 'string' ? item : item.name}</span>
         </div>
       ))}
@@ -52,78 +85,76 @@ const FileListCard = ({ data }) => {
   );
 };
 
-// ── Help List ─────────────────────────────────────────────────────────────
+// ── Help List ─────────────────────────────────────────────────
 const HelpCard = ({ data }) => {
   if (!Array.isArray(data)) return null;
   return (
     <div className="mt-2 space-y-1 max-h-48 overflow-y-auto pr-1">
-      {data.map((item, i) => (
+      {data.map((item, i) =>
         item.startsWith('──') ? (
-          <p key={i} className="text-xs font-semibold mt-2 first:mt-0" style={{ color: 'var(--color-accent1)' }}>{item}</p>
+          <p key={i} className="text-xs font-semibold mt-2 first:mt-0" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', letterSpacing: '1px', fontSize: '9px' }}>{item}</p>
         ) : (
-          <div key={i} className="text-xs px-2 py-1 rounded font-mono" style={{ background: 'var(--bg-input)', color: 'var(--text-dim)' }}>{item}</div>
+          <div key={i} className="text-xs px-2 py-1" style={{ fontFamily: "'Share Tech Mono', monospace", background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)', borderRadius: '2px' }}>{item}</div>
         )
-      ))}
+      )}
     </div>
   );
 };
 
-// ── 🆕 System Dashboard Card ──────────────────────────────────────────────
+// ── System Dashboard Card ─────────────────────────────────────
 const SystemDashCard = ({ data }) => {
   if (!data || typeof data !== 'object') return null;
   const bars = [
-    { label: 'CPU', pct: data.cpu, val: `${data.cpu}%`, color: '#10b981' },
-    { label: 'RAM', pct: data.ram_pct, val: `${data.ram_used}/${data.ram_total}GB`, color: '#06b6d4' },
-    { label: 'DISK', pct: data.disk_pct, val: `${data.disk_used}/${data.disk_total}GB`, color: '#f59e0b' },
+    { label: 'CPU', pct: data.cpu, val: `${data.cpu}%`, color: '#00ff88' },
+    { label: 'RAM', pct: data.ram_pct, val: `${data.ram_used}/${data.ram_total}GB`, color: '#00d4ff' },
+    { label: 'DISK', pct: data.disk_pct, val: `${data.disk_used}/${data.disk_total}GB`, color: '#ff9f43' },
   ];
   return (
     <div className="sys-dash-card">
       <div className="flex items-center gap-2 mb-3">
-        <Cpu className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
-        <span className="text-xs font-semibold font-mono" style={{ color: '#10b981' }}>SYSTEM DASHBOARD</span>
+        <Cpu style={{ width: 12, height: 12, color: '#00ff88' }} />
+        <span className="text-xs font-bold" style={{ fontFamily: "'Orbitron', monospace", color: '#00ff88', letterSpacing: '2px', fontSize: '9px', textShadow: '0 0 6px rgba(0,255,136,0.5)' }}>SYS // DASHBOARD</span>
       </div>
       {bars.map(bar => (
         <div key={bar.label} className="sys-stat-row">
           <span className="sys-stat-label">{bar.label}</span>
           <div className="sys-bar-track">
-            <div className="sys-bar-fill" style={{ width: `${bar.pct}%`, background: bar.color }} />
+            <div className="sys-bar-fill" style={{ width: `${bar.pct}%`, background: `linear-gradient(90deg, ${bar.color}99, ${bar.color})`, boxShadow: `0 0 6px ${bar.color}66` }} />
           </div>
-          <span className="sys-stat-val">{bar.val}</span>
+          <span className="sys-stat-val" style={{ color: bar.color }}>{bar.val}</span>
         </div>
       ))}
       <div className="sys-meta-row">
         <span className="sys-meta-chip">⬆ {data.net_sent}</span>
         <span className="sys-meta-chip">⬇ {data.net_recv}</span>
-        <span className="sys-meta-chip">⏱ Uptime {data.uptime}</span>
+        <span className="sys-meta-chip">⏱ {data.uptime}</span>
       </div>
     </div>
   );
 };
 
-// ── 🆕 Network Info Card ──────────────────────────────────────────────────
-const NetworkCard = ({ data, text }) => {
-  // Show ping result
+// ── Network Card ──────────────────────────────────────────────
+const NetworkCard = ({ data }) => {
   if (data && data.host && data.latency_ms) {
     const ms = parseInt(data.latency_ms);
-    const color = ms < 50 ? '#34d399' : ms < 150 ? '#fbbf24' : '#f87171';
+    const color = ms < 50 ? '#00ff88' : ms < 150 ? '#ff9f43' : '#ff4757';
     return (
       <div className="network-card">
-        <Globe className="w-5 h-5 shrink-0" style={{ color: '#818cf8' }} />
+        <Globe style={{ width: 18, height: 18, flexShrink: 0, color: '#00d4ff' }} />
         <div>
           <div className="network-ip">{data.host}</div>
-          <div className="network-meta">Ping result</div>
+          <div className="network-meta">PING RESULT</div>
         </div>
-        <div className="ping-pill" style={{ color, borderColor: `${color}33`, background: `${color}22` }}>
+        <div className="ping-pill" style={{ color, borderColor: `${color}44`, background: `${color}18` }}>
           {data.latency_ms} ms
         </div>
       </div>
     );
   }
-  // Show IP info
   if (data && data.ip) {
     return (
       <div className="network-card">
-        <Globe className="w-5 h-5 shrink-0" style={{ color: '#818cf8' }} />
+        <Globe style={{ width: 18, height: 18, flexShrink: 0, color: '#00d4ff' }} />
         <div>
           <div className="network-ip">{data.ip}</div>
           <div className="network-meta">{data.city}, {data.country}</div>
@@ -135,19 +166,19 @@ const NetworkCard = ({ data, text }) => {
   return null;
 };
 
-// ── 🆕 Macro List Card ────────────────────────────────────────────────────
+// ── Macro Card ────────────────────────────────────────────────
 const MacroCard = ({ data }) => {
   if (!Array.isArray(data) || data.length === 0) return null;
   return (
     <div className="macro-card">
       <div className="flex items-center gap-2 mb-2">
-        <Clapperboard className="w-3.5 h-3.5" style={{ color: '#fbbf24' }} />
-        <span className="text-xs font-semibold font-mono" style={{ color: '#fbbf24' }}>SAVED MACROS</span>
+        <Clapperboard style={{ width: 12, height: 12, color: '#ff9f43' }} />
+        <span style={{ fontFamily: "'Orbitron', monospace", color: '#ff9f43', fontSize: '9px', letterSpacing: '2px' }}>MACRO // STORE</span>
       </div>
       {data.map((macro, i) => (
         <div key={i} style={{ marginBottom: 8 }}>
-          <div className="text-xs font-semibold font-mono mb-1" style={{ color: '#fcd34d' }}>
-            📼 {macro.name} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>({macro.count} steps)</span>
+          <div className="text-xs font-bold mb-1" style={{ fontFamily: "'Share Tech Mono', monospace", color: '#ff9f43' }}>
+            ▶ {macro.name} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>[ {macro.count} STEPS ]</span>
           </div>
           {macro.commands && macro.commands.slice(0, 3).map((cmd, j) => (
             <div key={j} className="macro-cmd-row">
@@ -156,7 +187,9 @@ const MacroCard = ({ data }) => {
             </div>
           ))}
           {macro.commands && macro.commands.length > 3 && (
-            <div className="text-xs font-mono" style={{ color: 'var(--text-muted)', paddingLeft: 24 }}>+{macro.commands.length - 3} more...</div>
+            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: 'var(--text-muted)', paddingLeft: 24 }}>
+              +{macro.commands.length - 3} MORE...
+            </div>
           )}
         </div>
       ))}
@@ -164,18 +197,18 @@ const MacroCard = ({ data }) => {
   );
 };
 
-// ── 🆕 Analytics Card ─────────────────────────────────────────────────────
+// ── Analytics Card ────────────────────────────────────────────
 const AnalyticsCard = ({ data }) => {
   if (!data) return null;
   const intents = data.top_intents || [];
   return (
     <div className="analytics-card">
       <div className="flex items-center gap-2 mb-3">
-        <BarChart3 className="w-3.5 h-3.5" style={{ color: '#ec4899' }} />
-        <span className="text-xs font-semibold font-mono" style={{ color: '#ec4899' }}>COMMAND ANALYTICS</span>
+        <BarChart3 style={{ width: 12, height: 12, color: '#00d4ff' }} />
+        <span style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', fontSize: '9px', letterSpacing: '2px', textShadow: '0 0 6px rgba(0,212,255,0.5)' }}>CMD // ANALYTICS</span>
       </div>
       {intents.length === 0 && (
-        <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>No usage data yet. Try more commands!</p>
+        <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 10, color: 'var(--text-muted)' }}>NO USAGE DATA. TRY MORE COMMANDS.</p>
       )}
       {intents.map((item, i) => (
         <div key={i} className="analytics-bar-row">
@@ -187,76 +220,76 @@ const AnalyticsCard = ({ data }) => {
         </div>
       ))}
       <div className="analytics-summary-chips">
-        <span className="analytics-chip">💬 {data.user_commands} commands</span>
-        <span className="analytics-chip">🤖 {data.assistant_responses} responses</span>
-        <span className="analytics-chip">📊 {data.total_messages} total</span>
+        <span className="analytics-chip">💬 {data.user_commands} CMD</span>
+        <span className="analytics-chip">🤖 {data.assistant_responses} RSP</span>
+        <span className="analytics-chip">📊 {data.total_messages} TOT</span>
       </div>
     </div>
   );
 };
 
-// ── 🆕 Reminder List Card ─────────────────────────────────────────────────
+// ── Reminder List Card ────────────────────────────────────────
 const ReminderCard = ({ data }) => {
   if (!Array.isArray(data) || data.length === 0) return null;
   return (
     <div className="reminder-card">
       <div className="flex items-center gap-2 mb-2">
-        <Bell className="w-3.5 h-3.5" style={{ color: '#fb923c' }} />
-        <span className="text-xs font-semibold font-mono" style={{ color: '#fb923c' }}>ACTIVE REMINDERS</span>
+        <Bell style={{ width: 12, height: 12, color: '#ff9f43' }} />
+        <span style={{ fontFamily: "'Orbitron', monospace", color: '#ff9f43', fontSize: '9px', letterSpacing: '2px' }}>ACTIVE // REMINDERS</span>
       </div>
       {data.map((r, i) => (
         <div key={i} className="reminder-row">
-          <span className="reminder-label">🔔 {r.label}</span>
+          <span className="reminder-label">▶ {r.label}</span>
           <span className="reminder-due">{r.due}</span>
-          {r.recurring && <span className="reminder-recur">🔁 daily</span>}
+          {r.recurring && <span className="reminder-recur">DAILY</span>}
         </div>
       ))}
     </div>
   );
 };
 
-// ── 🆕 Chained Result Card ────────────────────────────────────────────────
+// ── Chained Result Card ───────────────────────────────────────
 const ChainedCard = ({ data }) => {
   if (!Array.isArray(data) || data.length === 0) return null;
   return (
     <div className="chained-card">
-      <div className="text-xs font-mono font-semibold mb-1" style={{ color: '#6366f1' }}>⛓ CHAINED COMMANDS</div>
+      <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 9, color: '#00d4ff', marginBottom: 6, letterSpacing: '2px' }}>⛓ CHAIN // EXECUTE</div>
       {data.map((r, i) => (
         <div key={i} className="chained-step">
           <span className="chained-arrow">{i === 0 ? '▶' : '→'}</span>
           <span>{r.text}</span>
-          {r.success && <span style={{ color: 'var(--color-success)', marginLeft: 'auto' }}>✓</span>}
+          {r.success && <span style={{ color: '#00ff88', marginLeft: 'auto', textShadow: '0 0 6px rgba(0,255,136,0.5)' }}>✓</span>}
         </div>
       ))}
     </div>
   );
 };
 
-// ── 🆕 Session Mood Tracker ───────────────────────────────────────────────
+// ── Session Mood ──────────────────────────────────────────────
 const getMood = (history) => {
   const assistant = history.filter(m => m.role === 'assistant');
-  if (assistant.length === 0) return { emoji: '🤖', label: 'idle', color: 'var(--text-muted)' };
+  if (assistant.length === 0) return { emoji: '◉', label: 'IDLE', color: 'var(--text-muted)' };
   const success = assistant.filter(m => m.success !== false).length;
   const ratio = success / assistant.length;
-  if (ratio >= 0.85) return { emoji: '😊', label: 'great', color: '#34d399' };
-  if (ratio >= 0.6)  return { emoji: '😐', label: 'ok', color: '#fbbf24' };
-  return { emoji: '😤', label: 'errors', color: '#f87171' };
+  if (ratio >= 0.85) return { emoji: '◉', label: 'OPTIMAL', color: '#00ff88' };
+  if (ratio >= 0.6)  return { emoji: '◎', label: 'NOMINAL', color: '#ff9f43' };
+  return { emoji: '◌', label: 'DEGRADED', color: '#ff4757' };
 };
 
-// ── 🆕 Stock & Crypto Card ──────────────────────────────────────────
+// ── Stock Card ────────────────────────────────────────────────
 const StockCard = ({ data }) => {
   if (!data) return null;
   const isUp = data.change_pct >= 0;
-  const color = isUp ? '#34d399' : '#f87171';
+  const color = isUp ? '#00ff88' : '#ff4757';
   const Icon = isUp ? TrendingUp : TrendingDown;
   return (
     <div className={`stock-card ${isUp ? 'up' : 'down'}`}>
-      <Icon className="w-6 h-6 shrink-0" style={{ color }} />
+      <Icon style={{ width: 20, height: 20, flexShrink: 0, color }} />
       <div>
-        <div className="stock-price" style={{ color }}>
+        <div className="stock-price" style={{ color, textShadow: `0 0 8px ${color}88` }}>
           {data.currency} {data.price_str}
         </div>
-        <div className="stock-ticker">{data.name} &middot; {data.ticker} &middot; {data.exchange}</div>
+        <div className="stock-ticker">{data.name} · {data.ticker} · {data.exchange}</div>
       </div>
       <div className={`stock-change ${isUp ? 'up' : 'down'}`}>
         {isUp ? '+' : ''}{data.change_pct}%
@@ -265,39 +298,35 @@ const StockCard = ({ data }) => {
   );
 };
 
-// ── 🆕 Morning Briefing Card ─────────────────────────────────────
+// ── Briefing Card ─────────────────────────────────────────────
 const BriefingCard = ({ data }) => {
   if (!data) return null;
   return (
     <div className="briefing-card">
       <div className="briefing-greeting">
-        <Sun className="inline w-4 h-4 mr-1" style={{ color: '#f59e0b', marginBottom: 2, WebkitTextFillColor: 'initial' }} />
-        {data.greeting} — {data.time}
+        <Sun style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#ff9f43', WebkitTextFillColor: 'initial' }} />
+        {data.greeting} // {data.time}
       </div>
-
       {data.weather && (
         <div className="briefing-section">
           <span className="briefing-icon">⛅</span>
-          <span>{data.weather.city}: {data.weather.temp}°C, {data.weather.condition} | Humidity {data.weather.humidity}%</span>
+          <span>{data.weather.city}: {data.weather.temp}°C · {data.weather.condition}</span>
         </div>
       )}
-
       {data.news && data.news.length > 0 && (
         <div className="briefing-section">
-          <span className="briefing-icon">📰</span>
-          <div className="space-y-1">
-            {data.news.map((h, i) => <div key={i}>{i + 1}. {h}</div>)}
+          <span className="briefing-icon">📡</span>
+          <div className="space-y-0.5">
+            {data.news.map((h, i) => <div key={i}>[{i + 1}] {h}</div>)}
           </div>
         </div>
       )}
-
       {data.reminders && data.reminders.length > 0 && (
         <div className="briefing-section">
           <span className="briefing-icon">🔔</span>
-          <span>{data.reminders.map(r => `${r.label} at ${r.due}`).join(' · ')}</span>
+          <span>{data.reminders.map(r => `${r.label} @ ${r.due}`).join(' · ')}</span>
         </div>
       )}
-
       <div className="briefing-meta">
         <span className="briefing-meta-chip">📅 {data.date}</span>
         <span className="briefing-meta-chip">🏙 {data.city}</span>
@@ -306,42 +335,107 @@ const BriefingCard = ({ data }) => {
   );
 };
 
-// ── 🆕 Translation Card ───────────────────────────────────────────
+// ── Translation Card ──────────────────────────────────────────
 const TranslationCard = ({ data }) => {
   if (!data) return null;
   return (
     <div className="translation-card">
-      <div className="translation-original">“{data.original}”</div>
+      <div className="translation-original">INPUT: "{data.original}"</div>
       <div className="translation-result">{data.translated}</div>
-      <div className="translation-lang">🌐 {data.target_lang} ({data.lang_code})</div>
+      <div className="translation-lang">TARGET: {data.target_lang} // {data.lang_code}</div>
     </div>
   );
 };
 
-// ── 🆕 AI Answer Card ────────────────────────────────────────────
+// ── AI Answer Card ────────────────────────────────────────────
 const AIAnswerCard = ({ text, data }) => {
   const clean = text?.replace(/^🤖\s*/, '').replace(/^🧠\s*/, '') || '';
   const model = data?.model || 'llama3';
   return (
     <div className="ai-card">
       <div className="ai-badge">
-        <Brain className="w-3 h-3" />
-        ARIA · {model} · 🔒 LOCAL
+        <Brain style={{ width: 9, height: 9 }} />
+        A.R.I.A. // {model.toUpperCase()} // LOCAL
       </div>
-      <div style={{ color: 'var(--text-primary)', lineHeight: 1.65 }}>{clean}</div>
+      <div style={{ color: 'var(--text-primary)', lineHeight: 1.7, fontFamily: "'Exo 2', sans-serif" }}>{clean}</div>
       {data?.eval_ms && (
-        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 6, fontFamily: 'monospace' }}>
-          {data.tokens} tokens · {data.eval_ms}ms inference
+        <div style={{ fontSize: 9, fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-muted)', marginTop: 6, letterSpacing: '0.5px' }}>
+          {data.tokens} TOKENS // {data.eval_ms}ms INFERENCE
         </div>
       )}
     </div>
   );
 };
 
-// ── Main ChatPanel ────────────────────────────────────────────────────────
+// ── Empty State ───────────────────────────────────────────────
+const EmptyState = () => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ duration: 0.5, ease: 'easeOut' }}
+    className="flex flex-col items-center justify-center flex-1 gap-5 py-10"
+  >
+    {/* Arc reactor */}
+    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }}>
+      {/* Outer ring */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: 12, ease: 'linear' }}
+        className="absolute inset-0 rounded-full"
+        style={{ border: '1px solid rgba(0,212,255,0.3)', borderTopColor: 'rgba(0,212,255,0.8)' }}
+      />
+      {/* Middle ring */}
+      <motion.div
+        animate={{ rotate: -360 }}
+        transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
+        className="absolute rounded-full"
+        style={{ width: 60, height: 60, border: '1px solid rgba(0,212,255,0.2)', borderRightColor: 'rgba(0,212,255,0.6)' }}
+      />
+      {/* Pulse ring */}
+      <motion.div
+        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+        transition={{ repeat: Infinity, duration: 2 }}
+        className="absolute rounded-full"
+        style={{ width: 40, height: 40, border: '1px solid rgba(0,212,255,0.4)', boxShadow: '0 0 12px rgba(0,212,255,0.4)' }}
+      />
+      {/* Core */}
+      <div
+        className="relative flex items-center justify-center rounded-full"
+        style={{
+          width: 26, height: 26,
+          background: 'radial-gradient(circle, rgba(0,212,255,0.5), rgba(0,212,255,0.1))',
+          boxShadow: '0 0 15px rgba(0,212,255,0.7), 0 0 30px rgba(0,212,255,0.3)',
+        }}
+      >
+        <Mic style={{ width: 11, height: 11, color: '#00d4ff' }} />
+      </div>
+    </div>
+
+    <div className="text-center space-y-1">
+      <p className="font-bold tracking-widest text-sm" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', textShadow: '0 0 10px rgba(0,212,255,0.6)', letterSpacing: '3px' }}>
+        A.R.I.A. ONLINE
+      </p>
+      <p className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'rgba(0,212,255,0.5)', letterSpacing: '1.5px' }}>
+        AWAITING INPUT COMMAND
+      </p>
+    </div>
+
+    {/* Sample commands */}
+    <div className="flex flex-wrap justify-center gap-2 max-w-xs">
+      {['weather in Mumbai', 'news', 'system stats', 'morning briefing'].map(cmd => (
+        <span key={cmd} className="text-[9px] px-2.5 py-1" style={{ fontFamily: "'Share Tech Mono', monospace", background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)', color: 'rgba(0,212,255,0.6)', borderRadius: '2px', letterSpacing: '0.5px' }}>
+          ▸ {cmd}
+        </span>
+      ))}
+    </div>
+  </motion.div>
+);
+
+// ── Main ChatPanel ────────────────────────────────────────────
 const ChatPanel = ({ history, statusText, onClearChat, isListening }) => {
   const bottomRef = useRef(null);
   const mood = getMood(history);
+  const msgCount = history.length;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -349,111 +443,180 @@ const ChatPanel = ({ history, statusText, onClearChat, isListening }) => {
 
   return (
     <div
-      className="rounded-2xl mx-4 mt-2 flex flex-col h-[500px]"
+      className="relative mx-4 mt-2 flex flex-col overflow-hidden"
       style={{
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--border-accent)',
-        boxShadow: '0 20px 60px var(--shadow-color)',
+        background: 'linear-gradient(180deg, rgba(0,18,36,0.97) 0%, rgba(0,12,26,0.99) 100%)',
+        border: '1px solid rgba(0,212,255,0.25)',
+        borderRadius: '4px',
+        boxShadow: '0 0 40px rgba(0,212,255,0.08), inset 0 0 60px rgba(0,212,255,0.02)',
+        height: 'calc(100vh - 195px)',
+        minHeight: 320,
       }}
     >
+      {/* Holographic grid */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      />
+
+      {/* Scan line */}
+      <div className="scan-line" />
+
+      {/* Corner decorations */}
+      <div className="corner-tl" />
+      <div className="corner-tr" />
+      <div className="corner-bl" />
+      <div className="corner-br" />
+
       {/* Header */}
       <div
-        className="drag-region flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border)' }}
+        className="drag-region relative flex items-center justify-between px-4 py-2.5 shrink-0 z-10"
+        style={{ borderBottom: '1px solid rgba(0,212,255,0.15)', background: 'rgba(0,12,28,0.6)' }}
       >
-        <div className="flex items-center gap-2 font-mono text-xs font-semibold" style={{ color: 'var(--color-success)' }}>
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--color-success)' }} />
-          <span>&gt;_ VOICE ASSISTANT</span>
+        <div className="flex items-center gap-3">
+          {/* Status dot */}
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              style={{ width: 6, height: 6, borderRadius: '50%', background: '#00ff88', boxShadow: '0 0 6px rgba(0,255,136,0.8)' }}
+            />
+            <span
+              className="font-bold tracking-widest text-xs"
+              style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', letterSpacing: '2px', fontSize: '10px' }}
+            >
+              ARIA // INTERFACE
+            </span>
+          </div>
+
+          {msgCount > 0 && (
+            <span
+              className="px-2 py-0.5"
+              style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', color: '#00d4ff', borderRadius: '2px', letterSpacing: '1px' }}
+            >
+              {msgCount} MSG
+            </span>
+          )}
         </div>
 
         <div className="no-drag flex items-center gap-2">
-          {/* 🆕 Mood Tracker */}
-          <div className="mood-pill" title={`Session mood: ${mood.label}`} style={{ borderColor: `${mood.color}44` }}>
-            <span>{mood.emoji}</span>
+          {/* Mood indicator */}
+          <div className="mood-pill" title={`Status: ${mood.label}`} style={{ borderColor: `${mood.color}55` }}>
+            <span style={{ color: mood.color, fontSize: 9 }}>{mood.emoji}</span>
             <span style={{ color: mood.color }}>{mood.label}</span>
           </div>
 
-          <button onClick={onClearChat} className="icon-btn" title="Clear chat" style={{ color: 'var(--text-muted)' }}>
-            <Trash2 className="w-3.5 h-3.5" />
+          <button onClick={onClearChat} className="icon-btn" title="Clear session">
+            <Trash2 style={{ width: 13, height: 13 }} />
           </button>
         </div>
       </div>
 
       {/* Chat Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 font-mono text-sm">
-        <AnimatePresence initial={false}>
-          {history.map((msg, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex gap-3"
-            >
-              {msg.role === 'user' ? (
-                <>
-                  <User className="w-3.5 h-3.5 shrink-0 mt-1" style={{ color: 'var(--color-accent1)' }} />
-                  <div>
-                    <span className="font-semibold" style={{ color: 'var(--color-accent1)' }}>You: </span>
-                    <span style={{ color: 'var(--text-dim)' }}>{msg.content}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Bot className="w-3.5 h-3.5 shrink-0 mt-1" style={{ color: 'var(--color-accent2)' }} />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold" style={{ color: 'var(--color-accent2)' }}>Assistant: </span>
-                    <span style={{ color: '#c084fc' }}>{msg.content}</span>
+      <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col relative z-10">
+        {history.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-4">
+            <AnimatePresence initial={false}>
+              {history.map((msg, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: msg.role === 'user' ? 10 : -10, y: 6 }}
+                  animate={{ opacity: 1, x: 0, y: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="flex gap-3 group"
+                >
+                  {msg.role === 'user' ? (
+                    <>
+                      {/* User icon */}
+                      <div
+                        className="shrink-0 mt-0.5 flex items-center justify-center rounded-sm"
+                        style={{ width: 18, height: 18, background: 'rgba(255,159,67,0.15)', border: '1px solid rgba(255,159,67,0.3)' }}
+                      >
+                        <User style={{ width: 10, height: 10, color: '#ff9f43' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-bold tracking-widest" style={{ fontFamily: "'Orbitron', monospace", color: '#ff9f43', fontSize: '9px', letterSpacing: '1.5px' }}>USER INPUT</span>
+                          <Timestamp iso={msg.timestamp} />
+                          <CopyBtn text={msg.content} />
+                        </div>
+                        <span className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-dim)', lineHeight: 1.6 }}>{msg.content}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* ARIA icon */}
+                      <div
+                        className="shrink-0 mt-0.5 flex items-center justify-center rounded-sm"
+                        style={{ width: 18, height: 18, background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.3)' }}
+                      >
+                        <Bot style={{ width: 10, height: 10, color: '#00d4ff' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-bold tracking-widest" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', fontSize: '9px', letterSpacing: '1.5px', textShadow: '0 0 6px rgba(0,212,255,0.5)' }}>A.R.I.A.</span>
+                          <Timestamp iso={msg.timestamp} />
+                          <CopyBtn text={msg.content} />
+                        </div>
+                        <span className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-primary)', lineHeight: 1.7 }}>{msg.content}</span>
 
-                    {/* ── Intent-specific rich cards ── */}
-                    {msg.intent_type === 'weather'      && msg.data && <WeatherCard data={msg.data} />}
-                    {msg.intent_type === 'news'         && msg.data && <NewsCard data={msg.data} />}
-                    {msg.intent_type === 'file_list'    && msg.data && <FileListCard data={msg.data} />}
-                    {msg.intent_type === 'help'         && msg.data && <HelpCard data={msg.data} />}
-                    {msg.intent_type === 'system_stats' && msg.data && <SystemDashCard data={msg.data} />}
-                    {msg.intent_type === 'network'      && msg.data && <NetworkCard data={msg.data} text={msg.content} />}
-                    {msg.intent_type === 'macro_list'   && msg.data && <MacroCard data={msg.data} />}
-                    {msg.intent_type === 'analytics'    && msg.data && <AnalyticsCard data={msg.data} />}
-                    {msg.intent_type === 'reminder_list'&& msg.data && <ReminderCard data={msg.data} />}
-                    {msg.intent_type === 'chained'      && msg.data && <ChainedCard data={msg.data} />}
-                    {/* ── JARVIS cards ── */}
-                    {msg.intent_type === 'stock'        && msg.data && <StockCard data={msg.data} />}
-                    {msg.intent_type === 'briefing'     && msg.data && <BriefingCard data={msg.data} />}
-                    {msg.intent_type === 'translation'  && msg.data && <TranslationCard data={msg.data} />}
-                    {msg.intent_type === 'ai_answer'              && <AIAnswerCard text={msg.content} data={msg.data} />}
+                        {/* Rich cards */}
+                        {msg.intent_type === 'weather'       && msg.data && <WeatherCard data={msg.data} />}
+                        {msg.intent_type === 'news'          && msg.data && <NewsCard data={msg.data} />}
+                        {msg.intent_type === 'file_list'     && msg.data && <FileListCard data={msg.data} />}
+                        {msg.intent_type === 'help'          && msg.data && <HelpCard data={msg.data} />}
+                        {msg.intent_type === 'system_stats'  && msg.data && <SystemDashCard data={msg.data} />}
+                        {msg.intent_type === 'network'       && msg.data && <NetworkCard data={msg.data} />}
+                        {msg.intent_type === 'macro_list'    && msg.data && <MacroCard data={msg.data} />}
+                        {msg.intent_type === 'analytics'     && msg.data && <AnalyticsCard data={msg.data} />}
+                        {msg.intent_type === 'reminder_list' && msg.data && <ReminderCard data={msg.data} />}
+                        {msg.intent_type === 'chained'       && msg.data && <ChainedCard data={msg.data} />}
+                        {msg.intent_type === 'stock'         && msg.data && <StockCard data={msg.data} />}
+                        {msg.intent_type === 'briefing'      && msg.data && <BriefingCard data={msg.data} />}
+                        {msg.intent_type === 'translation'   && msg.data && <TranslationCard data={msg.data} />}
+                        {msg.intent_type === 'ai_answer'               && <AIAnswerCard text={msg.content} data={msg.data} />}
 
-                    {/* Generic list data */}
-                    {msg.data && Array.isArray(msg.data) &&
-                      !['weather','news','file_list','help','system_stats','network','macro_list','analytics','reminder_list','chained'].includes(msg.intent_type) && (
-                      <div className="mt-2 pl-2 space-y-1" style={{ borderLeft: '2px solid var(--border-accent)' }}>
-                        {msg.data.map((item, i) => (
-                          <div key={i} className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {typeof item === 'string' ? item : `${item.name} — ${item.path}`}
+                        {/* Generic list */}
+                        {msg.data && Array.isArray(msg.data) &&
+                          !['weather','news','file_list','help','system_stats','network','macro_list','analytics','reminder_list','chained'].includes(msg.intent_type) && (
+                          <div className="mt-2 pl-2 space-y-1" style={{ borderLeft: '2px solid rgba(0,212,255,0.3)' }}>
+                            {msg.data.map((item, i) => (
+                              <div key={i} className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-muted)' }}>
+                                ▸ {typeof item === 'string' ? item : `${item.name} — ${item.path}`}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        )}
 
-                    {msg.success && (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs" style={{ color: 'var(--color-success)' }}>
-                        <Check className="w-3 h-3" />
-                        <span>Done</span>
+                        {msg.success && (
+                          <div className="flex items-center gap-1.5 mt-1.5 text-xs" style={{ color: '#00ff88' }}>
+                            <Check style={{ width: 10, height: 10 }} />
+                            <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, letterSpacing: '1px' }}>EXECUTED</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                    </>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
 
-        {/* Status line */}
-        <div className="flex gap-3 mt-2" style={{ color: 'var(--text-muted)' }}>
-          <Mic className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isListening ? 'animate-pulse' : ''}`}
-            style={{ color: isListening ? 'var(--color-success)' : 'var(--text-muted)' }}
+        {/* Status bar */}
+        <div className="flex gap-3 mt-3 shrink-0 items-center">
+          <motion.div
+            animate={isListening ? { opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] } : { opacity: 0.4 }}
+            transition={{ repeat: Infinity, duration: 1 }}
+            style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: isListening ? '#00ff88' : 'rgba(0,212,255,0.4)', boxShadow: isListening ? '0 0 8px rgba(0,255,136,0.7)' : 'none' }}
           />
-          <span className="text-xs" style={{ color: isListening ? 'var(--color-success)' : 'var(--text-muted)' }}>
-            {statusText}
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, letterSpacing: '1px', color: isListening ? '#00ff88' : 'var(--text-muted)', textShadow: isListening ? '0 0 6px rgba(0,255,136,0.5)' : 'none' }}>
+            {statusText.toUpperCase()}
           </span>
         </div>
 

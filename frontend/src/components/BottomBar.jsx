@@ -1,175 +1,227 @@
-import React, { useState, useRef } from 'react';
-import { Settings, HelpCircle, Mic, Send, X, Keyboard } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Mic, MicOff, Settings, Send, ChevronUp, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import CommandSuggestions from './CommandSuggestions';
 
-const Waveform = ({ isListening }) => (
-  <div className="flex items-center gap-[3px] mx-3">
-    {[...Array(10)].map((_, i) => (
-      <motion.div
-        key={i}
-        className="w-[3px] rounded-full"
-        style={{ background: 'linear-gradient(to top, var(--color-accent1), var(--color-accent2))' }}
-        animate={isListening
-          ? { height: [3, Math.random() * 18 + 8, 3] }
-          : { height: 3 }}
-        transition={{ repeat: Infinity, duration: 0.45 + Math.random() * 0.4, delay: i * 0.08 }}
-      />
-    ))}
-  </div>
-);
+const SHORTCUTS = [
+  { label: '⛅ WEATHER', cmd: 'weather in Mumbai' },
+  { label: '📡 NEWS', cmd: 'news' },
+  { label: '🖥 SYS STATS', cmd: 'system dashboard' },
+  { label: '☀️ BRIEFING', cmd: 'morning briefing' },
+  { label: '📈 BITCOIN', cmd: 'bitcoin price' },
+  { label: '🌐 MY IP', cmd: "what's my IP" },
+  { label: '📋 CLIPBOARD', cmd: 'read my clipboard' },
+  { label: '🔔 REMINDERS', cmd: 'show reminders' },
+];
 
 const BottomBar = ({ isListening, onToggleListen, onTextSubmit, onOpenSettings }) => {
-  const [isKeyboardMode, setIsKeyboardMode] = useState(false);
-  const [inputText, setInputText] = useState('');
-  const inputRef = useRef(null) ;
+  const [text, setText] = useState('');
+  const [historyIdx, setHistoryIdx] = useState(-1);
+  const [cmdHistory, setCmdHistory] = useState([]);
+  const inputRef = useRef(null);
 
-  const handleSubmit = (e) => {
-    e?.preventDefault();
-    const text = inputText.trim();
-    if (text && onTextSubmit) {
-      onTextSubmit(text);
-      setInputText('');
-      setIsKeyboardMode(false);
-    }
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const submit = (value) => {
+    const trimmed = (value || text).trim();
+    if (!trimmed) return;
+    onTextSubmit(trimmed);
+    setCmdHistory(prev => [trimmed, ...prev.slice(0, 49)]);
+    setText('');
+    setHistoryIdx(-1);
   };
 
-  const handleSuggestionSelect = (cmd) => {
-    setInputText(cmd);
-    // submit immediately
-    if (onTextSubmit) {
-      onTextSubmit(cmd);
-      setInputText('');
-      setIsKeyboardMode(false);
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') { submit(); return; }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next = Math.min(historyIdx + 1, cmdHistory.length - 1);
+      setHistoryIdx(next);
+      setText(cmdHistory[next] || '');
+      return;
     }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      setIsKeyboardMode(false);
-      setInputText('');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = Math.max(historyIdx - 1, -1);
+      setHistoryIdx(next);
+      setText(next === -1 ? '' : cmdHistory[next] || '');
     }
   };
 
   return (
-    <div
-      className="drag-region fixed bottom-5 left-1/2 -translate-x-1/2 px-5 py-3 flex items-center justify-between"
-      style={{
-        background: 'var(--bottom-bar-bg)',
-        border: '1px solid var(--bottom-bar-border)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: '20px',
-        minWidth: '520px',
-        boxShadow: '0 8px 32px var(--shadow-color)',
-      }}
-    >
-      {/* Left buttons */}
-      <div className="no-drag flex items-center gap-2">
+    <div className="mx-4 mb-4 space-y-2">
+      {/* Shortcut chips */}
+      <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+        {SHORTCUTS.map(s => (
+          <button
+            key={s.cmd}
+            onClick={() => submit(s.cmd)}
+            className="shortcut-chip shrink-0 no-drag"
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main bar */}
+      <div
+        className="relative flex items-center gap-2 overflow-hidden"
+        style={{
+          background: 'linear-gradient(90deg, rgba(0,18,36,0.96), rgba(0,12,26,0.96))',
+          border: '1px solid rgba(0,212,255,0.35)',
+          borderRadius: '4px',
+          padding: '8px 10px',
+          boxShadow: '0 0 20px rgba(0,212,255,0.1), inset 0 0 20px rgba(0,212,255,0.02)',
+        }}
+      >
+        {/* Corner decorations */}
+        <div className="corner-tl" />
+        <div className="corner-tr" />
+        <div className="corner-bl" />
+        <div className="corner-br" />
+
+        {/* Mic button */}
+        <motion.button
+          onClick={onToggleListen}
+          whileTap={{ scale: 0.92 }}
+          className="no-drag relative flex items-center justify-center rounded-sm shrink-0"
+          style={{
+            width: 38, height: 38,
+            background: isListening
+              ? 'rgba(0,255,136,0.15)'
+              : 'rgba(0,212,255,0.08)',
+            border: `1px solid ${isListening ? 'rgba(0,255,136,0.5)' : 'rgba(0,212,255,0.3)'}`,
+            boxShadow: isListening ? '0 0 15px rgba(0,255,136,0.4)' : '0 0 8px rgba(0,212,255,0.15)',
+            transition: 'all 0.2s',
+          }}
+          title={isListening ? 'Stop listening' : 'Start listening'}
+        >
+          {isListening && (
+            <motion.div
+              animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              className="absolute inset-0 rounded-sm"
+              style={{ border: '1px solid rgba(0,255,136,0.5)' }}
+            />
+          )}
+          {isListening
+            ? <MicOff style={{ width: 16, height: 16, color: '#00ff88' }} />
+            : <Mic style={{ width: 16, height: 16, color: '#00d4ff' }} />
+          }
+        </motion.button>
+
+        {/* Text input */}
+        <div className="flex-1 flex items-center gap-2 relative z-10">
+          <span
+            className="shrink-0"
+            style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 11, color: 'rgba(0,212,255,0.45)', letterSpacing: '1px' }}
+          >
+            ▸
+          </span>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="ENTER COMMAND..."
+            className="flex-1 bg-transparent outline-none text-xs"
+            style={{
+              fontFamily: "'Share Tech Mono', monospace",
+              letterSpacing: '0.5px',
+              color: 'var(--text-primary)',
+            }}
+          />
+          {/* History nav */}
+          {cmdHistory.length > 0 && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                onClick={() => {
+                  const next = Math.min(historyIdx + 1, cmdHistory.length - 1);
+                  setHistoryIdx(next);
+                  setText(cmdHistory[next] || '');
+                }}
+                className="fp-win-btn no-drag"
+                style={{ width: 18, height: 18, padding: 2 }}
+                title="Previous command"
+              >
+                <ChevronUp style={{ width: 10, height: 10 }} />
+              </button>
+              <button
+                onClick={() => {
+                  const next = Math.max(historyIdx - 1, -1);
+                  setHistoryIdx(next);
+                  setText(next === -1 ? '' : cmdHistory[next] || '');
+                }}
+                className="fp-win-btn no-drag"
+                style={{ width: 18, height: 18, padding: 2 }}
+                title="Next command"
+              >
+                <ChevronDown style={{ width: 10, height: 10 }} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Send button */}
+        <motion.button
+          onClick={() => submit()}
+          whileTap={{ scale: 0.9 }}
+          disabled={!text.trim()}
+          className="no-drag flex items-center justify-center rounded-sm shrink-0"
+          style={{
+            width: 36, height: 36,
+            background: text.trim() ? 'linear-gradient(135deg, rgba(0,212,255,0.25), rgba(0,153,204,0.15))' : 'var(--bg-input)',
+            border: `1px solid ${text.trim() ? 'rgba(0,212,255,0.5)' : 'var(--border)'}`,
+            color: text.trim() ? '#00d4ff' : 'var(--text-muted)',
+            boxShadow: text.trim() ? '0 0 10px rgba(0,212,255,0.3)' : 'none',
+            transition: 'all 0.2s',
+            cursor: text.trim() ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Send style={{ width: 14, height: 14 }} />
+        </motion.button>
+
+        {/* Settings button */}
         <button
-          id="btn-settings"
           onClick={onOpenSettings}
-          className="icon-btn"
+          className="no-drag icon-btn shrink-0"
+          style={{ width: 36, height: 36 }}
           title="Settings"
         >
-          <Settings className="w-4 h-4" />
+          <Settings style={{ width: 14, height: 14 }} />
         </button>
+
+        {/* Scan line */}
+        <div className="scan-line" />
       </div>
 
-      {/* Center */}
-      <div className="no-drag flex items-center absolute left-1/2 -translate-x-1/2 justify-center w-[320px]">
-        <AnimatePresence mode="wait">
-          {isKeyboardMode ? (
-            <motion.div
-              key="keyboard"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              className="relative w-full"
-            >
-              <CommandSuggestions query={inputText} onSelect={handleSuggestionSelect} />
-              <form
-                onSubmit={handleSubmit}
-                className="flex items-center w-full gap-2 rounded-full px-2 py-1"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-accent)' }}
-              >
-                <input
-                  ref={inputRef}
-                  type="text"
-                  autoFocus
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a command..."
-                  className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2"
-                  style={{ color: 'var(--text-primary)' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => { setIsKeyboardMode(false); setInputText(''); }}
-                  className="icon-btn w-6 h-6 p-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="submit"
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, var(--color-accent1), var(--color-accent2))' }}
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="mic"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-              className="flex items-center"
-            >
-              <Waveform isListening={isListening} />
-              <motion.button
-                id="btn-mic"
-                onClick={onToggleListen}
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.94 }}
-                animate={isListening
-                  ? { boxShadow: '0 0 24px 8px rgba(255,95,109,0.45)' }
-                  : { boxShadow: '0 0 0px 0px rgba(255,95,109,0)' }
-                }
-                className="w-14 h-14 rounded-full flex items-center justify-center relative z-10 transition-colors"
-                style={isListening
-                  ? { background: 'linear-gradient(135deg, var(--color-accent1), var(--color-accent2))' }
-                  : { background: 'var(--btn-bg)', border: '2px solid var(--border)' }
-                }
-              >
-                <Mic className={`w-7 h-7 ${isListening ? 'text-white' : ''}`}
-                  style={!isListening ? { color: 'var(--text-muted)' } : {}} />
-              </motion.button>
-              <Waveform isListening={isListening} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Right buttons */}
-      <div className="no-drag flex items-center gap-2">
-        <button
-          id="btn-keyboard"
-          onClick={() => setIsKeyboardMode(!isKeyboardMode)}
-          className={`icon-btn ${isKeyboardMode ? 'active' : ''}`}
-          title="Type command"
-        >
-          <Keyboard className="w-4 h-4" />
-        </button>
-        <button
-          id="btn-help"
-          onClick={() => onTextSubmit && onTextSubmit('help')}
-          className="icon-btn"
-          title="Show help"
-        >
-          <HelpCircle className="w-4 h-4" />
-        </button>
+      {/* Status footer */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-3">
+          <span
+            className="text-[9px] tracking-widest"
+            style={{ fontFamily: "'Share Tech Mono', monospace", color: 'rgba(0,212,255,0.35)', letterSpacing: '1.5px' }}
+          >
+            ↑↓ HISTORY
+          </span>
+          <span
+            className="text-[9px] tracking-widest"
+            style={{ fontFamily: "'Share Tech Mono', monospace", color: 'rgba(0,212,255,0.35)', letterSpacing: '1.5px' }}
+          >
+            ENTER SEND
+          </span>
+        </div>
+        {isListening && (
+          <motion.span
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ repeat: Infinity, duration: 1.2 }}
+            className="text-[9px] tracking-widest"
+            style={{ fontFamily: "'Share Tech Mono', monospace", color: '#00ff88', letterSpacing: '1.5px', textShadow: '0 0 6px rgba(0,255,136,0.5)' }}
+          >
+            ● RECORDING
+          </motion.span>
+        )}
       </div>
     </div>
   );

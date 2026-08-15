@@ -2,5 +2,8 @@
     "tts_enabled": true,
     "theme": "dark",
     "voice_speed": 190,
-    "voice_gender": "female"
+    "voice_gender": "female",
+    "wake_word_enabled": false,
+    "ollama_model": "llama3",
+    "briefing_city": "New Delhi"
 }

@@ -1,12 +1,16 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
+// Set application name everywhere
+app.setName('ARIA');
+
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 650,
     height: 750,
+    title: 'ARIA',
     transparent: true,
     frame: false,
     resizable: true,

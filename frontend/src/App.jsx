@@ -4,6 +4,7 @@ import ChatPanel from './components/ChatPanel';
 import BottomBar from './components/BottomBar';
 import SettingsPanel from './components/SettingsPanel';
 import NotificationToast from './components/NotificationToast';
+import SidebarPanel from './components/SidebarPanel';
 
 let _notifId = 0;
 const makeId = () => ++_notifId;
@@ -19,6 +20,8 @@ function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   const wsRef = useRef(null);
 
@@ -58,7 +61,7 @@ function App() {
 
   // ── WebSocket connection ──────────────────────────────────────────────
   useEffect(() => {
-    let destroyed = false;       // guard against StrictMode / HMR ghost
+    let destroyed = false;
     let reconnectTimer = null;
 
     const connect = () => {
@@ -68,8 +71,9 @@ function App() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (destroyed) { ws.close(); return; }   // StrictMode safety
+        if (destroyed) { ws.close(); return; }
         setStatusText('Ready');
+        setIsConnected(true);
       };
 
       ws.onmessage = (event) => {
@@ -145,7 +149,6 @@ function App() {
             break;
 
           case 'wake_word_triggered':
-            // Wake word fired — auto-start listening
             addNotif('info', '🎙️ ARIA Activated', 'Wake word detected — listening...');
             setIsListening(true);
             setStatusText('Listening... 🎙️');
@@ -160,8 +163,7 @@ function App() {
       ws.onclose = (evt) => {
         if (destroyed) return;
         setIsListening(false);
-        // evt.code 1000 = normal close (user closed browser tab, etc.)
-        // Only auto-reconnect on unexpected disconnect
+        setIsConnected(false);
         if (evt.code !== 1000) {
           setStatusText('Disconnected — reconnecting in 3s...');
           reconnectTimer = setTimeout(connect, 3000);
@@ -172,8 +174,8 @@ function App() {
 
       ws.onerror = () => {
         if (destroyed) return;
+        setIsConnected(false);
         setStatusText('Cannot reach backend — is main.py running?');
-        // onclose will fire after onerror, so reconnect handled there
       };
     };
 
@@ -229,38 +231,96 @@ function App() {
 
   // ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen w-screen relative overflow-hidden font-sans" style={{ background: 'var(--bg)' }}>
-      {/* Subtle background gradient orb */}
+    <div
+      className="h-screen w-screen relative overflow-hidden"
+      style={{ background: 'var(--bg)', fontFamily: "'Exo 2', system-ui, sans-serif" }}
+    >
+      {/* Holographic grid */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full opacity-10 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, var(--color-accent1), transparent 70%)', filter: 'blur(60px)' }}
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+        }}
       />
 
-      <FloatingPill isListening={isListening} theme={settings.theme} wakeWordEnabled={settings.wake_word_enabled} />
+      {/* Animated background orbs */}
+      <div
+        className="bg-orb absolute top-0 left-1/2 pointer-events-none"
+        style={{
+          width: 600, height: 600,
+          background: 'radial-gradient(circle, rgba(0,212,255,0.12), transparent 70%)',
+          filter: 'blur(80px)',
+          opacity: 0.6,
+        }}
+      />
+      <div
+        className="bg-orb absolute bottom-0 right-0 pointer-events-none"
+        style={{
+          width: 350, height: 350,
+          background: 'radial-gradient(circle, rgba(0,255,136,0.08), transparent 70%)',
+          filter: 'blur(70px)',
+          animationDelay: '-5s',
+          opacity: 0.5,
+        }}
+      />
+      <div
+        className="bg-orb absolute top-1/3 right-1/4 pointer-events-none"
+        style={{
+          width: 200, height: 200,
+          background: 'radial-gradient(circle, rgba(0,99,255,0.06), transparent 70%)',
+          filter: 'blur(50px)',
+          animationDelay: '-2s',
+          opacity: 0.4,
+        }}
+      />
 
-      <ChatPanel
+      {/* Sidebar */}
+      <SidebarPanel
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(p => !p)}
+        onCommand={handleTextCommand}
         history={history}
-        statusText={statusText}
-        isListening={isListening}
-        onClearChat={handleClearChat}
+        isConnected={isConnected}
       />
 
-      {/* Settings panel overlay */}
-      {showSettings && (
-        <SettingsPanel
-          settings={settings}
-          onUpdateSetting={handleUpdateSetting}
-          onExportChat={handleExportChat}
-          onClose={() => setShowSettings(false)}
+      {/* Main content area — shifts right when sidebar is open */}
+      <div
+        className="flex flex-col h-full transition-all duration-300"
+        style={{ marginLeft: sidebarOpen ? 224 : 0 }}
+      >
+        <FloatingPill
+          isListening={isListening}
+          theme={settings.theme}
+          wakeWordEnabled={settings.wake_word_enabled}
+          messageCount={history.length}
         />
-      )}
 
-      <BottomBar
-        isListening={isListening}
-        onToggleListen={handleToggleListen}
-        onTextSubmit={handleTextCommand}
-        onOpenSettings={() => setShowSettings(prev => !prev)}
-      />
+        <ChatPanel
+          history={history}
+          statusText={statusText}
+          isListening={isListening}
+          onClearChat={handleClearChat}
+        />
+
+        {/* Settings panel overlay */}
+        {showSettings && (
+          <SettingsPanel
+            settings={settings}
+            onUpdateSetting={handleUpdateSetting}
+            onExportChat={handleExportChat}
+            onClose={() => setShowSettings(false)}
+            onCommand={handleTextCommand}
+          />
+        )}
+
+        <BottomBar
+          isListening={isListening}
+          onToggleListen={handleToggleListen}
+          onTextSubmit={handleTextCommand}
+          onOpenSettings={() => setShowSettings(prev => !prev)}
+        />
+      </div>
 
       {/* Toast notifications */}
       <NotificationToast notifications={notifications} onDismiss={dismissNotif} />
