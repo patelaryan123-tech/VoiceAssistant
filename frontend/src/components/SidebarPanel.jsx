@@ -4,21 +4,25 @@ import { ChevronRight, ChevronLeft, Zap, Activity, Wifi } from 'lucide-react';
 import LiveClock from './LiveClock';
 
 const QUICK_ACTIONS = [
+  { icon: '🛡️', label: 'SECURITY', action: 'security', color: '#00ff88' },
+  { icon: '✨', label: 'HUB', action: 'features', color: '#f43f5e' },
+  { icon: '⚙️', label: 'TELEMETRY', action: 'telemetry', color: '#00d4ff' },
+  { icon: '🎭', label: 'PERSONAS', action: 'personas', color: '#c084fc' },
+  { icon: '📄', label: 'OCR SCAN', action: 'ocr', color: '#34d399' },
+  { icon: '🔐', label: 'VAULT', action: 'vault', color: '#fbbf24' },
   { icon: '⛅', label: 'WEATHER', cmd: 'weather in Mumbai', color: '#00d4ff' },
   { icon: '📡', label: 'NEWS', cmd: 'news', color: '#00ff88' },
-  { icon: '🖥', label: 'SYS', cmd: 'system dashboard', color: '#ff9f43' },
   { icon: '☀️', label: 'BRIEF', cmd: 'morning briefing', color: '#fbbf24' },
   { icon: '📈', label: 'STOCK', cmd: 'bitcoin price', color: '#00ff88' },
   { icon: '🌐', label: 'NET', cmd: "what's my IP", color: '#818cf8' },
   { icon: '🔔', label: 'REMIND', cmd: 'show reminders', color: '#ff9f43' },
-  { icon: '📊', label: 'STATS', cmd: 'show analytics', color: '#ec4899' },
-  { icon: '📋', label: 'CLIP', cmd: 'read my clipboard', color: '#34d399' },
-  { icon: '🔍', label: 'SEARCH', cmd: 'search for AI tools', color: '#60a5fa' },
-  { icon: '🤖', label: 'AI', cmd: 'ask AI what is quantum computing', color: '#c084fc' },
-  { icon: '📸', label: 'SHOT', cmd: 'take a screenshot', color: '#fb923c' },
 ];
 
-const SidebarPanel = ({ isOpen, onToggle, onCommand, history, isConnected }) => {
+const SidebarPanel = ({
+  isOpen, onToggle, onCommand, onOpenFeatures,
+  onOpenTelemetry, onOpenPersonas, onOpenOCR, onOpenVault, onOpenSecurity,
+  history, isConnected
+}) => {
   const [uptime, setUptime] = useState(0);
 
   useEffect(() => {
@@ -103,11 +107,19 @@ const SidebarPanel = ({ isOpen, onToggle, onCommand, history, isConnected }) => 
               <div className="quick-tiles-grid">
                 {QUICK_ACTIONS.map(a => (
                   <button
-                    key={a.cmd}
+                    key={a.label}
                     className="quick-tile no-drag"
                     style={{ '--tile-color': a.color }}
-                    onClick={() => { onCommand(a.cmd); }}
-                    title={a.cmd}
+                    onClick={() => { 
+                      if (a.action === 'features') { if (onOpenFeatures) onOpenFeatures(); }
+                      else if (a.action === 'security') { if (onOpenSecurity) onOpenSecurity(); }
+                      else if (a.action === 'telemetry') { if (onOpenTelemetry) onOpenTelemetry(); }
+                      else if (a.action === 'personas') { if (onOpenPersonas) onOpenPersonas(); }
+                      else if (a.action === 'ocr') { if (onOpenOCR) onOpenOCR(); }
+                      else if (a.action === 'vault') { if (onOpenVault) onOpenVault(); }
+                      else { onCommand(a.cmd); }
+                    }}
+                    title={a.action ? `Open ${a.label}` : a.cmd}
                   >
                     <div className="quick-tile-glow" />
                     <span className="quick-tile-icon">{a.icon}</span>

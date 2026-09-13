@@ -5,6 +5,8 @@ import {
   Copy, CheckCheck, Shield, Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import LiveChart from './LiveChart';
+import ArcReactor3D from './ArcReactor3D';
 
 // ── Copy button ───────────────────────────────────────────────
 const CopyBtn = ({ text }) => {
@@ -164,6 +166,113 @@ const NetworkCard = ({ data }) => {
     );
   }
   return null;
+};
+
+// ── Port Scan Card ────────────────────────────────────────────
+const PortScanCard = ({ data }) => {
+  const PORT_NAMES = {
+    21: 'FTP',
+    22: 'SSH',
+    23: 'Telnet',
+    25: 'SMTP',
+    53: 'DNS',
+    80: 'HTTP',
+    110: 'POP3',
+    135: 'RPC',
+    139: 'NetBIOS',
+    443: 'HTTPS',
+    445: 'SMB',
+    1433: 'MSSQL',
+    3306: 'MySQL',
+    3389: 'RDP',
+    8000: 'Dev Server',
+    8080: 'HTTP Alt'
+  };
+
+  const scannedPorts = [21, 22, 23, 25, 53, 80, 110, 135, 139, 443, 445, 1433, 3306, 3389, 8000, 8080];
+  const openPorts = data.open_ports || [];
+
+  return (
+    <div className="port-scan-card p-3 bg-[rgba(0,212,255,0.02)] border border-[rgba(0,212,255,0.25)] rounded-[3px] space-y-2.5" style={{ minWidth: 260 }}>
+      <div className="flex items-center justify-between border-b border-[rgba(0,212,255,0.1)] pb-1.5">
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: 13 }}>🛡️</span>
+          <span style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', fontSize: '9px', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+            PORT SCANNER // AUDIT
+          </span>
+        </div>
+        <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: 'rgba(0,212,255,0.4)' }}>
+          {data.host}
+        </span>
+      </div>
+
+      <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 10, color: 'var(--text-muted)' }} className="flex justify-between">
+        <span>IP: {data.ip}</span>
+        <span className="text-[#00ff88]" style={{ textShadow: '0 0 4px rgba(0,255,136,0.3)' }}>
+          {openPorts.length} OPEN PORTS
+        </span>
+      </div>
+
+      <div className="grid grid-cols-4 gap-1.5 pt-1">
+        {scannedPorts.map(port => {
+          const isOpen = openPorts.includes(port);
+          const color = isOpen ? '#00ff88' : 'rgba(255,255,255,0.15)';
+          const bg = isOpen ? 'rgba(0,255,136,0.08)' : 'rgba(255,255,255,0.02)';
+          const border = isOpen ? '1px solid rgba(0,255,136,0.3)' : '1px solid rgba(255,255,255,0.05)';
+          const shadow = isOpen ? '0 0 6px rgba(0,255,136,0.2)' : 'none';
+
+          return (
+            <div
+              key={port}
+              className="flex flex-col items-center justify-center p-1 rounded-[2px] transition-all duration-300"
+              style={{ background: bg, border: border, boxShadow: shadow }}
+            >
+              <span style={{ fontSize: 9, color: color, fontWeight: isOpen ? 'bold' : 'normal' }}>
+                {port}
+              </span>
+              <span style={{ fontSize: 7, color: isOpen ? 'rgba(0,255,136,0.6)' : 'rgba(255,255,255,0.25)', textTransform: 'uppercase' }}>
+                {PORT_NAMES[port] || 'UNK'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── Process Guard Card ────────────────────────────────────────
+const ProcessGuardCard = ({ data }) => {
+  const isRunning = data.status === 'running';
+  const color = isRunning ? '#00ff88' : '#ff4757';
+  const bg = isRunning ? 'rgba(0,255,136,0.04)' : 'rgba(255,71,87,0.04)';
+  const border = isRunning ? '1px solid rgba(0,255,136,0.25)' : '1px solid rgba(255,71,87,0.25)';
+  const shadow = isRunning ? '0 0 8px rgba(0,255,136,0.1)' : '0 0 8px rgba(255,71,87,0.1)';
+
+  return (
+    <div className="process-guard-card p-3 rounded-[3px] flex items-center justify-between" style={{ background: bg, border: border, boxShadow: shadow, minWidth: 260 }}>
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }}></span>
+          <span className="relative inline-flex rounded-full h-3 w-3" style={{ background: color }}></span>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Orbitron', monospace", fontSize: '9px', letterSpacing: '1px', color: 'var(--text-muted)' }}>
+            PROCESS WATCHDOG
+          </div>
+          <div className="text-xs font-bold" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-primary)', marginTop: 2 }}>
+            {data.name}
+          </div>
+        </div>
+      </div>
+      <div
+        className="px-2 py-0.5 rounded-[2px] font-mono text-[9px] font-bold uppercase tracking-wider"
+        style={{ color: color, border: `1px solid ${color}44`, background: `${color}11` }}
+      >
+        {data.status}
+      </div>
+    </div>
+  );
 };
 
 // ── Macro Card ────────────────────────────────────────────────
@@ -368,54 +477,21 @@ const AIAnswerCard = ({ text, data }) => {
 };
 
 // ── Empty State ───────────────────────────────────────────────
-const EmptyState = () => (
+const EmptyState = ({ jarvisMode }) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ duration: 0.5, ease: 'easeOut' }}
     className="flex flex-col items-center justify-center flex-1 gap-5 py-10"
   >
-    {/* Arc reactor */}
-    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }}>
-      {/* Outer ring */}
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 12, ease: 'linear' }}
-        className="absolute inset-0 rounded-full"
-        style={{ border: '1px solid rgba(0,212,255,0.3)', borderTopColor: 'rgba(0,212,255,0.8)' }}
-      />
-      {/* Middle ring */}
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
-        className="absolute rounded-full"
-        style={{ width: 60, height: 60, border: '1px solid rgba(0,212,255,0.2)', borderRightColor: 'rgba(0,212,255,0.6)' }}
-      />
-      {/* Pulse ring */}
-      <motion.div
-        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
-        transition={{ repeat: Infinity, duration: 2 }}
-        className="absolute rounded-full"
-        style={{ width: 40, height: 40, border: '1px solid rgba(0,212,255,0.4)', boxShadow: '0 0 12px rgba(0,212,255,0.4)' }}
-      />
-      {/* Core */}
-      <div
-        className="relative flex items-center justify-center rounded-full"
-        style={{
-          width: 26, height: 26,
-          background: 'radial-gradient(circle, rgba(0,212,255,0.5), rgba(0,212,255,0.1))',
-          boxShadow: '0 0 15px rgba(0,212,255,0.7), 0 0 30px rgba(0,212,255,0.3)',
-        }}
-      >
-        <Mic style={{ width: 11, height: 11, color: '#00d4ff' }} />
-      </div>
-    </div>
+    {/* 3D Arc Reactor */}
+    <ArcReactor3D isListening={false} size={150} jarvisMode={jarvisMode} />
 
     <div className="text-center space-y-1">
-      <p className="font-bold tracking-widest text-sm" style={{ fontFamily: "'Orbitron', monospace", color: '#00d4ff', textShadow: '0 0 10px rgba(0,212,255,0.6)', letterSpacing: '3px' }}>
-        A.R.I.A. ONLINE
+      <p className="font-bold tracking-widest text-sm" style={{ fontFamily: "'Orbitron', monospace", color: jarvisMode ? '#ff4757' : '#00d4ff', textShadow: jarvisMode ? '0 0 10px rgba(255,71,87,0.6)' : '0 0 10px rgba(0,212,255,0.6)', letterSpacing: '3px' }}>
+        {jarvisMode ? 'J.A.R.V.I.S.' : 'A.R.I.A.'} ONLINE
       </p>
-      <p className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'rgba(0,212,255,0.5)', letterSpacing: '1.5px' }}>
+      <p className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: jarvisMode ? 'rgba(255,71,87,0.5)' : 'rgba(0,212,255,0.5)', letterSpacing: '1.5px' }}>
         AWAITING INPUT COMMAND
       </p>
     </div>
@@ -423,7 +499,7 @@ const EmptyState = () => (
     {/* Sample commands */}
     <div className="flex flex-wrap justify-center gap-2 max-w-xs">
       {['weather in Mumbai', 'news', 'system stats', 'morning briefing'].map(cmd => (
-        <span key={cmd} className="text-[9px] px-2.5 py-1" style={{ fontFamily: "'Share Tech Mono', monospace", background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)', color: 'rgba(0,212,255,0.6)', borderRadius: '2px', letterSpacing: '0.5px' }}>
+        <span key={cmd} className="text-[9px] px-2.5 py-1" style={{ fontFamily: "'Share Tech Mono', monospace", background: jarvisMode ? 'rgba(255,71,87,0.05)' : 'rgba(0,212,255,0.05)', border: `1px solid ${jarvisMode ? 'rgba(255,71,87,0.2)' : 'rgba(0,212,255,0.2)'}`, color: jarvisMode ? 'rgba(255,71,87,0.6)' : 'rgba(0,212,255,0.6)', borderRadius: '2px', letterSpacing: '0.5px' }}>
           ▸ {cmd}
         </span>
       ))}
@@ -432,7 +508,7 @@ const EmptyState = () => (
 );
 
 // ── Main ChatPanel ────────────────────────────────────────────
-const ChatPanel = ({ history, statusText, onClearChat, isListening }) => {
+const ChatPanel = ({ history, statusText, onClearChat, isListening, jarvisMode }) => {
   const bottomRef = useRef(null);
   const mood = getMood(history);
   const msgCount = history.length;
@@ -518,7 +594,7 @@ const ChatPanel = ({ history, statusText, onClearChat, isListening }) => {
       {/* Chat Body */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col relative z-10">
         {history.length === 0 ? (
-          <EmptyState />
+          <EmptyState jarvisMode={jarvisMode} />
         ) : (
           <div className="space-y-4">
             <AnimatePresence initial={false}>
@@ -576,18 +652,34 @@ const ChatPanel = ({ history, statusText, onClearChat, isListening }) => {
                         {msg.intent_type === 'analytics'     && msg.data && <AnalyticsCard data={msg.data} />}
                         {msg.intent_type === 'reminder_list' && msg.data && <ReminderCard data={msg.data} />}
                         {msg.intent_type === 'chained'       && msg.data && <ChainedCard data={msg.data} />}
-                        {msg.intent_type === 'stock'         && msg.data && <StockCard data={msg.data} />}
+                        {msg.intent_type === 'port_scan'     && msg.data && <PortScanCard data={msg.data} />}
+                        {msg.intent_type === 'process_guard' && msg.data && <ProcessGuardCard data={msg.data} />}
+                        {msg.intent_type === 'stock' && msg.data && (
+                          <>
+                            <StockCard data={msg.data} />
+                            <LiveChart
+                              data={msg.data.history || []}
+                              ticker={msg.data.ticker || ''}
+                              currency={msg.data.currency || '$'}
+                              isUp={(msg.data.change_pct || 0) >= 0}
+                            />
+                          </>
+                        )}
                         {msg.intent_type === 'briefing'      && msg.data && <BriefingCard data={msg.data} />}
                         {msg.intent_type === 'translation'   && msg.data && <TranslationCard data={msg.data} />}
                         {msg.intent_type === 'ai_answer'               && <AIAnswerCard text={msg.content} data={msg.data} />}
 
                         {/* Generic list */}
                         {msg.data && Array.isArray(msg.data) &&
-                          !['weather','news','file_list','help','system_stats','network','macro_list','analytics','reminder_list','chained'].includes(msg.intent_type) && (
+                          !['weather','news','file_list','help','system_stats','network','macro_list','analytics','reminder_list','chained','port_scan','process_guard'].includes(msg.intent_type) && (
                           <div className="mt-2 pl-2 space-y-1" style={{ borderLeft: '2px solid rgba(0,212,255,0.3)' }}>
                             {msg.data.map((item, i) => (
                               <div key={i} className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-muted)' }}>
-                                ▸ {typeof item === 'string' ? item : `${item.name} — ${item.path}`}
+                                ▸ {typeof item === 'string' 
+                                    ? item 
+                                    : (item.label && item.confidence !== undefined)
+                                      ? `${item.label} (${Math.round(item.confidence * 100)}%)`
+                                      : `${item.name || ''} — ${item.path || ''}`}
                               </div>
                             ))}
                           </div>

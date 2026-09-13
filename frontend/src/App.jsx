@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import FloatingPill from './components/FloatingPill';
 import ChatPanel from './components/ChatPanel';
 import BottomBar from './components/BottomBar';
 import SettingsPanel from './components/SettingsPanel';
 import NotificationToast from './components/NotificationToast';
 import SidebarPanel from './components/SidebarPanel';
+import PinLockScreen from './components/PinLockScreen';
+import VisionPanel from './components/VisionPanel';
+import FeaturesHubModal from './components/FeaturesHubModal';
+import TelemetryModal from './components/TelemetryModal';
+import PersonaSelector from './components/PersonaSelector';
+import VisionOCRModal from './components/VisionOCRModal';
+import VaultModal from './components/VaultModal';
+import SecurityAuditModal from './components/SecurityAuditModal';
+import { secureStorage } from './utils/secureStorage';
+import { audioSynth } from './utils/audioSynth';
 
 let _notifId = 0;
 const makeId = () => ++_notifId;
@@ -18,18 +29,76 @@ function App() {
     theme: 'dark',
     voice_speed: 160,
   });
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings]   = useState(false);
+  const [showFeatures, setShowFeatures]   = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [showPersonas, setShowPersonas]   = useState(false);
+  const [showOCR, setShowOCR]             = useState(false);
+  const [showVault, setShowVault]         = useState(false);
+  const [showSecurity, setShowSecurity]   = useState(false);
+  const [activePersona, setActivePersona] = useState('aria');
+  const [telemetryData, setTelemetryData] = useState(null);
+  const [securityAuditData, setSecurityAuditData] = useState(null);
+
   const [notifications, setNotifications] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [isConnected, setIsConnected]     = useState(false);
+
+  // ── Auto-Lock Inactivity Safeguard (5 minutes) ─────────────────────────
+  useEffect(() => {
+    let inactivityTimer;
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        setIsLocked(true);
+      }, 300000); // 5 minutes (300,000 ms)
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('click', resetTimer);
+    resetTimer();
+
+    return () => {
+      clearTimeout(inactivityTimer);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('click', resetTimer);
+    };
+  }, []);
+
+  // ── New feature states ────────────────────────────────────────────────
+  const [isLocked, setIsLocked]           = useState(true);   // PIN lock
+  const [pinStatus, setPinStatus]         = useState('idle'); // idle | verifying | success | error
+  const [pinLockoutTime, setPinLockoutTime] = useState(0);
+  const [visionRunning, setVisionRunning] = useState(false);  // YOLO vision
+  const [visionFrame, setVisionFrame]     = useState(null);   // base64 frame
+  const [visionDets, setVisionDets]       = useState([]);     // detections
 
   const wsRef = useRef(null);
 
+  const handleVerifyPin = (pin) => {
+    // Guard: if WebSocket is not connected, don't get stuck in 'verifying'
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setPinStatus('error');
+      addNotif('error', 'Not Connected', 'Backend is not running. Start main.py first.');
+      return;
+    }
+    setPinStatus('verifying');
+    send({ action: 'verify_pin', pin });
+
+    // Safety timeout: reset if no WS response arrives within 5 seconds
+    setTimeout(() => {
+      setPinStatus(prev => prev === 'verifying' ? 'idle' : prev);
+    }, 5000);
+  };
+
   // ── Apply theme to <html> ─────────────────────────────────────────────
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    const activeTheme = settings.jarvis_mode ? 'jarvis' : settings.theme;
+    document.documentElement.setAttribute('data-theme', activeTheme);
     document.body.style.background = 'var(--bg)';
-  }, [settings.theme]);
+  }, [settings.theme, settings.jarvis_mode]);
 
   // ── Dismiss notification ─────────────────────────────────────────────
   const dismissNotif = useCallback((id) => {
@@ -88,6 +157,52 @@ function App() {
           case 'settings':
             setSettings(msg.data || {});
             break;
+
+          case 'telemetry':
+            setTelemetryData(msg.data || null);
+            break;
+
+          case 'verify_pin_result':
+            if (msg.success) {
+              setPinStatus('success');
+              audioSynth.playAccessGranted();
+              setTimeout(() => {
+                setIsLocked(false);
+              }, 800);
+            } else {
+              setPinStatus('error');
+              audioSynth.playAccessDenied();
+              if (msg.lockout_time) {
+                setPinLockoutTime(msg.lockout_time);
+              }
+              addNotif('error', 'PIN Error', msg.text || 'Invalid PIN.');
+            }
+            break;
+
+          case 'change_pin_result':
+            if (msg.success) {
+              addNotif('success', 'PIN Changed', msg.text || 'PIN updated successfully.');
+            } else {
+              addNotif('error', 'PIN Update Failed', msg.text || 'Failed to update PIN.');
+            }
+            if (window.__onPinChangeResult) {
+              window.__onPinChangeResult(msg.success, msg.text);
+            }
+            break;
+
+          case 'process_guard_alert': {
+            const entry = {
+              role:        'assistant',
+              content:     msg.text,
+              data:        msg.data,
+              success:     msg.success,
+              intent_type: 'process_guard',
+              timestamp:   new Date().toISOString(),
+            };
+            setHistory(prev => [...prev, entry]);
+            addNotif('warning', 'Process Guard Alert', msg.text);
+            break;
+          }
 
           case 'transcript': {
             const entry = {
@@ -155,6 +270,35 @@ function App() {
             send({ action: 'start_listening' });
             break;
 
+          case 'vision_frame':
+            setVisionFrame(msg.frame || null);
+            setVisionDets(msg.detections || []);
+            setVisionRunning(true);
+            break;
+
+          case 'vision_error':
+            addNotif('error', '👁️ Vision Error', msg.text || 'Camera error');
+            setVisionRunning(false);
+            setVisionFrame(null);
+            setVisionDets([]);
+            break;
+
+          case 'vision_stopped':
+            // Clear vision panel UI
+            setVisionRunning(false);
+            setVisionFrame(null);
+            setVisionDets([]);
+            // Show summary in notification toast
+            if (msg.summary) {
+              addNotif('info', '👁️ Vision Deactivated', msg.summary);
+            }
+            break;
+
+          case 'security_audit': {
+            setSecurityAuditData(msg.data || null);
+            break;
+          }
+
           default:
             break;
         }
@@ -221,8 +365,12 @@ function App() {
   };
 
   const handleUpdateSetting = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    send({ action: 'update_settings', key, value });
+    if (key === 'change_pin') {
+      send({ action: 'change_pin', current_pin: value.currentPin, new_pin: value.newPin });
+    } else {
+      setSettings(prev => ({ ...prev, [key]: value }));
+      send({ action: 'update_settings', key, value });
+    }
   };
 
   const handleExportChat = () => {
@@ -235,92 +383,220 @@ function App() {
       className="h-screen w-screen relative overflow-hidden"
       style={{ background: 'var(--bg)', fontFamily: "'Exo 2', system-ui, sans-serif" }}
     >
-      {/* Holographic grid */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }}
-      />
+      <AnimatePresence mode="wait">
+        {isLocked ? (
+          <motion.div
+            key="lock-screen"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[200]"
+          >
+            <PinLockScreen
+              onUnlock={() => setIsLocked(false)}
+              onVerify={handleVerifyPin}
+              status={pinStatus}
+              setStatus={setPinStatus}
+              lockoutTime={pinLockoutTime}
+              setLockoutTime={setPinLockoutTime}
+              jarvisMode={settings.jarvis_mode}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="main-app"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0"
+          >
+            {/* Holographic grid */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: 'linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px)',
+                backgroundSize: '60px 60px',
+              }}
+            />
 
-      {/* Animated background orbs */}
-      <div
-        className="bg-orb absolute top-0 left-1/2 pointer-events-none"
-        style={{
-          width: 600, height: 600,
-          background: 'radial-gradient(circle, rgba(0,212,255,0.12), transparent 70%)',
-          filter: 'blur(80px)',
-          opacity: 0.6,
-        }}
-      />
-      <div
-        className="bg-orb absolute bottom-0 right-0 pointer-events-none"
-        style={{
-          width: 350, height: 350,
-          background: 'radial-gradient(circle, rgba(0,255,136,0.08), transparent 70%)',
-          filter: 'blur(70px)',
-          animationDelay: '-5s',
-          opacity: 0.5,
-        }}
-      />
-      <div
-        className="bg-orb absolute top-1/3 right-1/4 pointer-events-none"
-        style={{
-          width: 200, height: 200,
-          background: 'radial-gradient(circle, rgba(0,99,255,0.06), transparent 70%)',
-          filter: 'blur(50px)',
-          animationDelay: '-2s',
-          opacity: 0.4,
-        }}
-      />
+            {/* Animated background orbs */}
+            <div
+              className="bg-orb absolute top-0 left-1/2 pointer-events-none"
+              style={{
+                width: 600, height: 600,
+                background: 'radial-gradient(circle, rgba(0,212,255,0.12), transparent 70%)',
+                filter: 'blur(80px)',
+                opacity: 0.6,
+              }}
+            />
+            <div
+              className="bg-orb absolute bottom-0 right-0 pointer-events-none"
+              style={{
+                width: 350, height: 350,
+                background: 'radial-gradient(circle, rgba(0,255,136,0.08), transparent 70%)',
+                filter: 'blur(70px)',
+                animationDelay: '-5s',
+                opacity: 0.5,
+              }}
+            />
+            <div
+              className="bg-orb absolute top-1/3 right-1/4 pointer-events-none"
+              style={{
+                width: 200, height: 200,
+                background: 'radial-gradient(circle, rgba(0,99,255,0.06), transparent 70%)',
+                filter: 'blur(50px)',
+                animationDelay: '-2s',
+                opacity: 0.4,
+              }}
+            />
 
-      {/* Sidebar */}
-      <SidebarPanel
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(p => !p)}
-        onCommand={handleTextCommand}
-        history={history}
-        isConnected={isConnected}
-      />
+            {/* Sidebar */}
+            <SidebarPanel
+              isOpen={sidebarOpen}
+              onToggle={() => setSidebarOpen(p => !p)}
+              onCommand={handleTextCommand}
+              onOpenFeatures={() => setShowFeatures(true)}
+              onOpenTelemetry={() => {
+                send({ action: 'get_telemetry' });
+                setShowTelemetry(true);
+              }}
+              onOpenPersonas={() => setShowPersonas(true)}
+              onOpenOCR={() => setShowOCR(true)}
+              onOpenVault={() => setShowVault(true)}
+              onOpenSecurity={() => {
+                send({ action: 'get_security_audit' });
+                setShowSecurity(true);
+              }}
+              history={history}
+              isConnected={isConnected}
+            />
 
-      {/* Main content area — shifts right when sidebar is open */}
-      <div
-        className="flex flex-col h-full transition-all duration-300"
-        style={{ marginLeft: sidebarOpen ? 224 : 0 }}
-      >
-        <FloatingPill
-          isListening={isListening}
-          theme={settings.theme}
-          wakeWordEnabled={settings.wake_word_enabled}
-          messageCount={history.length}
-        />
+            {/* Main content area — shifts right when sidebar is open */}
+            <div
+              className="flex flex-col h-full transition-all duration-300"
+              style={{ marginLeft: sidebarOpen ? 224 : 0 }}
+            >
+              <FloatingPill
+                isListening={isListening}
+                theme={settings.theme}
+                wakeWordEnabled={settings.wake_word_enabled}
+                messageCount={history.length}
+              />
 
-        <ChatPanel
-          history={history}
-          statusText={statusText}
-          isListening={isListening}
-          onClearChat={handleClearChat}
-        />
+              <ChatPanel
+                history={history}
+                statusText={statusText}
+                isListening={isListening}
+                onClearChat={handleClearChat}
+                jarvisMode={settings.jarvis_mode}
+              />
 
-        {/* Settings panel overlay */}
-        {showSettings && (
-          <SettingsPanel
-            settings={settings}
-            onUpdateSetting={handleUpdateSetting}
-            onExportChat={handleExportChat}
-            onClose={() => setShowSettings(false)}
-            onCommand={handleTextCommand}
-          />
+              {/* YOLO Vision Panel */}
+              <VisionPanel
+                frame={visionFrame}
+                detections={visionDets}
+                isRunning={visionRunning}
+                onStop={() => {
+                  // Only send command — let backend vision_stopped response drive UI cleanup
+                  send({ action: 'text_command', text: 'stop vision' });
+                }}
+              />
+
+              {/* Settings panel overlay */}
+              {showSettings && (
+                <SettingsPanel
+                  settings={settings}
+                  onUpdateSetting={handleUpdateSetting}
+                  onExportChat={handleExportChat}
+                  onClose={() => setShowSettings(false)}
+                  onCommand={handleTextCommand}
+                />
+              )}
+
+              {/* Features Hub Modal */}
+              {showFeatures && (
+                <FeaturesHubModal
+                  onClose={() => setShowFeatures(false)}
+                  onCommand={handleTextCommand}
+                  jarvisMode={settings.jarvis_mode}
+                />
+              )}
+
+              {/* Telemetry Modal */}
+              {showTelemetry && (
+                <TelemetryModal
+                  onClose={() => setShowTelemetry(false)}
+                  jarvisMode={settings.jarvis_mode}
+                  telemetryData={telemetryData}
+                />
+              )}
+
+              {/* Persona Selector Modal */}
+              {showPersonas && (
+                <PersonaSelector
+                  activePersona={activePersona}
+                  onSelectPersona={(personaId, isJarvis) => {
+                    setActivePersona(personaId);
+                    handleUpdateSetting('jarvis_mode', isJarvis);
+                  }}
+                  onClose={() => setShowPersonas(false)}
+                  jarvisMode={settings.jarvis_mode}
+                />
+              )}
+
+              {/* Vision OCR Modal */}
+              {showOCR && (
+                <VisionOCRModal
+                  onClose={() => setShowOCR(false)}
+                  onCommand={handleTextCommand}
+                  jarvisMode={settings.jarvis_mode}
+                />
+              )}
+
+              {/* Zero-Trust Vault Modal */}
+              {showVault && (
+                <VaultModal
+                  onClose={() => setShowVault(false)}
+                  onClearChat={handleClearChat}
+                  jarvisMode={settings.jarvis_mode}
+                />
+              )}
+
+              {/* Security Audit HUD Modal */}
+              {showSecurity && (
+                <SecurityAuditModal
+                  onClose={() => setShowSecurity(false)}
+                  onLockdown={() => {
+                    setIsLocked(true);
+                    setShowSecurity(false);
+                    addNotif('warning', '🔒 Emergency Lockdown', 'System locked. Enter PIN to resume.');
+                  }}
+                  auditData={securityAuditData}
+                  jarvisMode={settings.jarvis_mode}
+                />
+              )}
+
+              <BottomBar
+                isListening={isListening}
+                onToggleListen={handleToggleListen}
+                onTextSubmit={handleTextCommand}
+                onOpenSettings={() => setShowSettings(prev => !prev)}
+                onOpenFeatures={() => setShowFeatures(true)}
+                onOpenTelemetry={() => {
+                  send({ action: 'get_telemetry' });
+                  setShowTelemetry(true);
+                }}
+                onOpenPersonas={() => setShowPersonas(true)}
+                onOpenVault={() => setShowVault(true)}
+                onOpenSecurity={() => {
+                  send({ action: 'get_security_audit' });
+                  setShowSecurity(true);
+                }}
+              />
+            </div>
+          </motion.div>
         )}
-
-        <BottomBar
-          isListening={isListening}
-          onToggleListen={handleToggleListen}
-          onTextSubmit={handleTextCommand}
-          onOpenSettings={() => setShowSettings(prev => !prev)}
-        />
-      </div>
+      </AnimatePresence>
 
       {/* Toast notifications */}
       <NotificationToast notifications={notifications} onDismiss={dismissNotif} />

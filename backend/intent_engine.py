@@ -9,8 +9,11 @@ Covers: Help, Time/Date, VS Code, Folders, Files, Websites,
         Command Chaining, Clipboard, System Dashboard, Macro Recorder,
         Network Info, Ping, Session Analytics, Smart Reminders,
         ── JARVIS FEATURES ──
-        Wake Word, AI Free-Form (Gemini), Morning Briefing,
+        Wake Word, AI Free-Form, Morning Briefing,
         Stock/Crypto Tracker, Real-Time Translation
+        ── NEW ARIA FEATURES ──
+        RAG (Chat with Docs), GUI Automation, YOLO Vision,
+        Plugin System, Conversation Memory
 """
 
 import re
@@ -21,6 +24,34 @@ import macro_store
 import reminder_store
 import llm
 
+# New feature modules (imported lazily to keep startup fast)
+try:
+    import rag_engine as _rag_mod
+    _rag_mod.init_rag()
+except Exception as _e:
+    print(f"[IntentEngine] RAG module not available: {_e}")
+    _rag_mod = None
+
+try:
+    import gui_automation as _gui
+except Exception as _e:
+    print(f"[IntentEngine] GUI automation not available: {_e}")
+    _gui = None
+
+try:
+    import vision_engine as _vis_mod
+    _vis_mod.init_vision()
+except Exception as _e:
+    print(f"[IntentEngine] Vision module not available: {_e}")
+    _vis_mod = None
+
+try:
+    import plugin_loader as _pl
+    _plugin_loader = _pl.get_plugin_loader()
+except Exception as _e:
+    print(f"[IntentEngine] Plugin loader not available: {_e}")
+    _plugin_loader = None
+
 
 class IntentEngine:
     def __init__(self):
@@ -29,11 +60,13 @@ class IntentEngine:
         self._last_assistant_text = ""
         self._ollama_model = "llama3"     # Set from settings
         self._briefing_city = "New Delhi" # Set from settings
+        self._jarvis_mode = False         # Set from settings
 
     def update_ai_settings(self, settings: dict):
         """Called whenever settings change."""
         self._ollama_model  = settings.get("ollama_model", "llama3")
         self._briefing_city = settings.get("briefing_city", "New Delhi")
+        self._jarvis_mode   = settings.get("jarvis_mode", False)
 
     def set_timer_callback(self, callback):
         """Register async callback for timer notifications."""
@@ -426,6 +459,24 @@ class IntentEngine:
             result = system_ops.ping_host(host)
             return {**result, "type": "network"}
 
+        # ── 33b. PORT SCAN ───────────────────────────────────────────
+        m = re.search(r"(?:scan\s+ports\s+on|port\s*scan)\s+(.+)", cmd)
+        if m:
+            host = m.group(1).strip()
+            # Remove protocol prefix if exists
+            host = re.sub(r"^https?://", "", host)
+            # Remove paths or ports if exist
+            host = host.split("/")[0].split(":")[0]
+            result = system_ops.scan_ports(host)
+            return {**result, "type": "port_scan"}
+
+        # ── 33c. PROCESS GUARD ───────────────────────────────────────
+        m = re.search(r"(?:guard|monitor)\s+process\s+(.+)", cmd)
+        if m:
+            proc_name = m.group(1).strip()
+            result = system_ops.guard_process(proc_name)
+            return {**result, "type": "process_guard"}
+
         # ── 34. ANALYTICS ────────────────────────────────────────────
         if re.search(r"show\s+analytics|command\s+(?:stats|analytics|history)|usage\s+stats|analytics", cmd):
             return {"type": "analytics_request", "text": "Loading analytics... 📊", "success": True}
@@ -582,12 +633,97 @@ class IntentEngine:
             result = web_info.translate_text(text_to_translate, target_lang)
             return {**result, "type": "translation"}
 
-        # ── 44. AI FREE-FORM (OLLAMA) ─────────────────────────────────
+        # ── 44. RAG — CHAT WITH DOCUMENTS ─────────────────────────────
+        if re.search(r"load\s+(my\s+)?(documents?|docs?|files?|notes?|pdfs?)", cmd):
+            if _rag_mod:
+                return _rag_mod.get_rag().scan_documents()
+            return {"type": "error", "text": "RAG engine not available.", "success": False}
+
+        rag_q = re.search(r"(?:ask\s+(?:my\s+)?(?:files?|docs?|notes?|documents?)(?:\s*:)?\s*)(.+)", cmd)
+        if rag_q:
+            question = rag_q.group(1).strip()
+            if _rag_mod:
+                result = _rag_mod.get_rag().query(question, self._ollama_model)
+                return {**result, "type": "ai_answer"}
+            return {"type": "error", "text": "RAG not available.", "success": False}
+
+        # ── 45. GUI AUTOMATION ────────────────────────────────────────
+        if re.search(r"^(click|left.?click|right.?click|double.?click)\s*(at|on)?\s*(center|screen)?", cmd):
+            if _gui:
+                if "right" in cmd:
+                    return {**_gui.right_click(), "type": "system"}
+                if "double" in cmd:
+                    return {**_gui.double_click(), "type": "system"}
+                return {**_gui.click(), "type": "system"}
+            return {"type": "error", "text": "GUI automation not available.", "success": False}
+
+        m = re.search(r"^type\s+(.+)$", cmd)
+        if m and _gui:
+            return {**_gui.type_text(m.group(1).strip()), "type": "system"}
+
+        m = re.search(r"^press\s+(.+)$", cmd)
+        if m and _gui:
+            return {**_gui.press_key(m.group(1).strip()), "type": "system"}
+
+        m = re.search(r"^scroll\s+(up|down)(?:\s+(\d+))?$", cmd)
+        if m and _gui:
+            direction = m.group(1)
+            clicks    = int(m.group(2) or 3)
+            return {**_gui.scroll(direction, clicks), "type": "system"}
+
+        if re.search(r"^move\s+mouse\s+to\s+(.+)$", cmd) and _gui:
+            corner = re.search(r"^move\s+mouse\s+to\s+(.+)$", cmd).group(1).strip()
+            return {**_gui.move_to_corner(corner), "type": "system"}
+
+        if re.search(r"^(where is|mouse position|where.?s the mouse)", cmd) and _gui:
+            return {**_gui.get_mouse_position(), "type": "system"}
+
+        if re.search(r"^screen (resolution|size)", cmd) and _gui:
+            return {**_gui.get_screen_size(), "type": "system"}
+
+        # ── 45b. VISION — YOLO WEBCAM ─────────────────────────────────
+        if re.search(r"start\s+vision|enable\s+vision|activate\s+vision|start\s+camera", cmd):
+            if _vis_mod:
+                vision = _vis_mod.get_vision()
+                def _on_frame(frame_data):
+                    pass  # handled by main.py WebSocket broadcast
+                # Note: actual streaming is set up in main.py via vision_engine singleton
+                result = {"success": True, "text": "👁️ Starting vision mode... Say 'stop vision' to deactivate.", "type": "system"}
+                return result
+            return {"type": "error", "text": "Vision engine not available.", "success": False}
+
+        if re.search(r"stop\s+vision|disable\s+vision|stop\s+camera", cmd):
+            if _vis_mod:
+                return {**_vis_mod.get_vision().stop(), "type": "system"}
+            return {"type": "system", "text": "Vision stopped.", "success": True}
+
+        if re.search(r"what do you see|what.?s in front|take a look|snapshot", cmd):
+            if _vis_mod:
+                return {**_vis_mod.get_vision().snapshot(), "type": "system"}
+            return {"type": "error", "text": "Vision engine not available.", "success": False}
+
+        # ── 46. PLUGIN SYSTEM ─────────────────────────────────────────
+        if re.search(r"^list\s+plugins?$|^show\s+plugins?$", cmd):
+            if _plugin_loader:
+                return {**_plugin_loader.list_plugins(), "type": "system"}
+            return {"type": "system", "text": "Plugin system not available.", "success": False}
+
+        if re.search(r"^reload\s+plugins?$", cmd):
+            if _plugin_loader:
+                return {**_plugin_loader.reload(), "type": "system"}
+            return {"type": "system", "text": "No plugins to reload.", "success": False}
+
+        if _plugin_loader:
+            plugin_result = _plugin_loader.dispatch(cmd)
+            if plugin_result:
+                return {**plugin_result, "type": "system"}
+
+        # ── 47. AI FREE-FORM (OLLAMA) ─────────────────────────────────
         # Explicit AI triggers
-        if re.search(r"^(?:ask\s+ai|ask\s+aria|hey\s+ai|ai\s+answer|aria\s+answer|ollama)\s+(.+)", cmd):
-            m = re.search(r"^(?:ask\s+ai|ask\s+aria|hey\s+ai|ai\s+answer|aria\s+answer|ollama)\s+(.+)", cmd)
+        if re.search(r"^(?:ask\s+ai|ask\s+aria|ask\s+jarvis|hey\s+ai|hey\s+jarvis|ai\s+answer|aria\s+answer|jarvis\s+answer|ollama)\s+(.+)", cmd):
+            m = re.search(r"^(?:ask\s+ai|ask\s+aria|ask\s+jarvis|hey\s+ai|hey\s+jarvis|ai\s+answer|aria\s+answer|jarvis\s+answer|ollama)\s+(.+)", cmd)
             prompt = m.group(1).strip() if m else cmd
-            result = llm.ask_ollama(prompt, self._ollama_model)
+            result = llm.ask_ollama(prompt, self._ollama_model, jarvis_mode=self._jarvis_mode)
             return {**result, "type": "ai_answer"}
 
         # ── 45. OPEN APP (fallback) ───────────────────────────────────
@@ -601,18 +737,19 @@ class IntentEngine:
                 return {"type": "system", "text": f"Opening {target}... 🌐", "success": True}
             return {**result, "type": "system"}
 
-        # ── 46. CLEAR CHAT ───────────────────────────────────────────
+        # ── 46. CLEAR CHAT (also clears memory) ─────────────────────────
         if cmd in ("clear chat", "clear", "clear history"):
-            return {"type": "clear", "text": "Chat cleared.", "success": True}
+            llm.get_memory().clear()   # reset conversation memory
+            return {"type": "clear", "text": "Chat cleared and memory reset.", "success": True}
 
-        # ── 47. EXIT ─────────────────────────────────────────────────
+        # ── 47. EXIT ─────────────────────────────────────────────────────
         if cmd in ("stop", "exit", "quit", "goodbye", "bye"):
             return {"type": "exit", "text": "Goodbye! 👋", "success": True}
 
         # ── 48. FALLBACK TO AI if nothing matched ─────────────────────
         # Acts as JARVIS catch-all when Ollama is available
         if len(cmd.split()) >= 3:
-            result = llm.ask_ollama(cmd_raw, self._ollama_model)
+            result = llm.ask_ollama(cmd_raw, self._ollama_model, jarvis_mode=self._jarvis_mode)
             if result.get("success"):
                 return {**result, "type": "ai_answer"}
 

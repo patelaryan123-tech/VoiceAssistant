@@ -3,7 +3,9 @@
     "theme": "dark",
     "voice_speed": 190,
     "voice_gender": "female",
-    "wake_word_enabled": false,
+    "wake_word_enabled": true,
     "ollama_model": "llama3",
-    "briefing_city": "New Delhi"
+    "briefing_city": "New Delhi",
+    "app_pin": "b33ed571eded536f0f0bc2be4e4384055acd592fe6652a555320fdca4dbeb175",
+    "jarvis_mode": true
 }

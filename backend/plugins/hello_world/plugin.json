@@ -1,0 +1,11 @@
+{
+  "name": "hello_world",
+  "description": "Example plugin — responds to 'plugin demo' command",
+  "version": "1.0",
+  "author": "ARIA",
+  "triggers": [
+    "plugin demo",
+    "test plugin",
+    "demo plugin"
+  ]
+}

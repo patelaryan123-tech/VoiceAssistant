@@ -630,3 +630,71 @@ def get_analytics(history: list[dict]) -> dict:
         return {"success": True, "text": text, "data": data}
     except Exception as e:
         return {"success": False, "text": f"Analytics error: {str(e)}"}
+
+
+# ---------------------------------------------------------------------------
+# Advanced DevOps & Troubleshooting Commands (Port Scanner & Process Guard)
+# ---------------------------------------------------------------------------
+import socket
+import psutil
+import time
+
+_guarded_processes = {}
+
+def scan_ports(host: str = "127.0.0.1") -> dict:
+    """Scans the most common ports on a host and returns a list of open ports."""
+    common_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 443, 445, 1433, 3306, 3389, 8000, 8080]
+    open_ports = []
+    
+    try:
+        ip = socket.gethostbyname(host)
+    except socket.gaierror:
+        return {"success": False, "text": f"Could not resolve host: {host}"}
+        
+    for port in common_ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.15)
+        result = s.connect_ex((ip, port))
+        if result == 0:
+            open_ports.append(port)
+        s.close()
+        
+    if open_ports:
+        port_list = ", ".join(str(p) for p in open_ports)
+        return {
+            "success": True,
+            "text": f"🛡️ Port Scan for {host} ({ip}): Found open ports: {port_list}",
+            "data": {"host": host, "ip": ip, "open_ports": open_ports}
+        }
+    else:
+        return {
+            "success": True,
+            "text": f"🛡️ Port Scan for {host} ({ip}): No common open ports found.",
+            "data": {"host": host, "ip": ip, "open_ports": []}
+        }
+
+def guard_process(name: str) -> dict:
+    """Adds a process to the watchdog monitor list."""
+    running = False
+    name_lower = name.lower()
+    try:
+        for proc in psutil.process_iter(['name']):
+            pname = proc.info.get('name')
+            if pname and name_lower in pname.lower():
+                running = True
+                break
+    except Exception:
+        pass
+            
+    _guarded_processes[name_lower] = {
+        "name": name,
+        "last_status": "running" if running else "stopped",
+        "last_checked": time.time()
+    }
+    
+    status_str = "running" if running else "not running"
+    return {
+        "success": True,
+        "text": f"🚨 Process Guard activated for '{name}' (Current status: {status_str}).",
+        "data": {"name": name, "status": status_str}
+    }

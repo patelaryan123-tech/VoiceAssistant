@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sun, Moon, Volume2, VolumeX, Sliders, Download, Info, Settings, Terminal } from 'lucide-react';
 
@@ -7,6 +7,7 @@ const COMMANDS = [
   { category: '💹 STOCKS & CRYPTO', items: ['bitcoin price', 'apple stock', 'tesla price', 'nifty stock', 'ethereum crypto', 'gold price', 'nvidia stock'] },
   { category: '🌐 TRANSLATION', items: ['translate hello to Hindi', 'translate good morning to French', 'translate my clipboard to Spanish'] },
   { category: '🤖 AI (OLLAMA)', items: ['ask AI what is quantum computing', 'ask aria write a poem about Mumbai', 'hey ai explain blockchain', 'gemini what is dark matter'] },
+  { category: '🛠️ DEVOPS & NETWORK', items: ['scan ports on localhost', 'guard process notepad', 'show system stats', 'ping google.com', 'show network info'] },
   { category: '☀️ BRIEFING & SMART', items: ['good morning', 'morning briefing', 'brief me', "what's today", 'daily briefing'] },
   { category: '🖥️ SYSTEM', items: ['volume up', 'volume down', 'mute', 'take a screenshot', 'battery level', 'shutdown', 'restart', 'lock screen', 'open notepad', 'open chrome'] },
   { category: '📁 FILES', items: ['list files in downloads', 'find all pdf files', 'create file notes.txt in desktop', 'delete file old.txt from desktop'] },
@@ -21,6 +22,36 @@ const TABS = [
 
 const SettingsPanel = ({ settings, onUpdateSetting, onExportChat, onClose, onCommand }) => {
   const [activeTab, setActiveTab] = useState('settings');
+
+  // New state variables for security pin change
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinSuccess, setPinSuccess] = useState('');
+
+  useEffect(() => {
+    window.__onPinChangeResult = (success, message) => {
+      if (success) {
+        setPinSuccess(message || 'PIN changed successfully!');
+        setPinError('');
+        setCurrentPin('');
+        setNewPin('');
+        setConfirmPin('');
+        setTimeout(() => {
+          setIsChangingPin(false);
+          setPinSuccess('');
+        }, 2000);
+      } else {
+        setPinError(message || 'Failed to change PIN.');
+        setPinSuccess('');
+      }
+    };
+    return () => {
+      window.__onPinChangeResult = null;
+    };
+  }, []);
 
   return (
     <AnimatePresence>
@@ -180,6 +211,41 @@ const SettingsPanel = ({ settings, onUpdateSetting, onExportChat, onClose, onCom
                     </button>
                   </div>
 
+                  {/* JARVIS Mode Toggle */}
+                  <div className="flex items-center justify-between py-1 border-t border-[rgba(0,212,255,0.06)] pt-2.5">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 13 }}>🔥</span>
+                        <span className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-primary)', letterSpacing: '0.5px' }}>JARVIS MODE</span>
+                      </div>
+                      <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.5px', marginTop: 2 }}>
+                        ACTIVATE PROTOCOL: IRON MAN CORE & UK VOICE
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onUpdateSetting('jarvis_mode', !settings.jarvis_mode)}
+                      className="relative"
+                      style={{
+                        width: 48, height: 24, borderRadius: '2px',
+                        background: settings.jarvis_mode ? 'rgba(255,71,87,0.15)' : 'rgba(0,212,255,0.06)',
+                        border: `1px solid ${settings.jarvis_mode ? 'rgba(255,71,87,0.4)' : 'rgba(0,212,255,0.15)'}`,
+                        boxShadow: settings.jarvis_mode ? '0 0 8px rgba(255,71,87,0.2)' : 'none',
+                        transition: 'all 0.3s'
+                      }}
+                    >
+                      <motion.div
+                        animate={{ x: settings.jarvis_mode ? 24 : 2 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        style={{
+                          position: 'absolute', top: 2, width: 18, height: 18,
+                          background: settings.jarvis_mode ? '#ff4757' : 'rgba(0,212,255,0.4)',
+                          borderRadius: '1px',
+                          boxShadow: settings.jarvis_mode ? '0 0 6px rgba(255,71,87,0.5)' : 'none'
+                        }}
+                      />
+                    </button>
+                  </div>
+
                   {/* Ollama Model */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -258,6 +324,133 @@ const SettingsPanel = ({ settings, onUpdateSetting, onExportChat, onClose, onCom
                         style={{ height: '100%' }}
                       />
                     </div>
+                  </div>
+
+                  {/* Security / PIN */}
+                  <div className="space-y-2 pt-1 border-t border-[rgba(0,212,255,0.1)]">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 13 }}>🔐</span>
+                        <span className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", color: 'var(--text-primary)', letterSpacing: '0.5px' }}>SECURITY PIN</span>
+                      </div>
+                      <span className="text-xs" style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: 'rgba(0,212,255,0.4)', letterSpacing: '0.5px' }}>
+                        USED FOR STARTUP LOCK
+                      </span>
+                    </div>
+
+                    {!isChangingPin ? (
+                      <button
+                        onClick={() => setIsChangingPin(true)}
+                        className="no-drag w-full py-1.5 text-[10px] font-bold transition-all"
+                        style={{
+                          fontFamily: "'Share Tech Mono', monospace",
+                          letterSpacing: '1px',
+                          background: 'rgba(0,212,255,0.06)',
+                          border: '1px solid rgba(0,212,255,0.2)',
+                          color: '#00d4ff',
+                          borderRadius: '3px',
+                        }}
+                      >
+                        CHANGE SECURITY PIN
+                      </button>
+                    ) : (
+                      <div className="space-y-2 p-2 bg-[rgba(0,212,255,0.02)] border border-[rgba(0,212,255,0.1)] rounded-[3px]">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-[rgba(0,212,255,0.5)] font-mono uppercase">Current PIN</label>
+                          <input
+                            type="password"
+                            maxLength="4"
+                            placeholder="••••"
+                            value={currentPin}
+                            onChange={(e) => setCurrentPin(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full px-2 py-1 outline-none text-xs"
+                            style={{ fontFamily: "'Share Tech Mono', monospace", letterSpacing: '2px', background: 'rgba(0,212,255,0.05)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.2)', borderRadius: '3px' }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-[rgba(0,212,255,0.5)] font-mono uppercase">New PIN</label>
+                          <input
+                            type="password"
+                            maxLength="4"
+                            placeholder="••••"
+                            value={newPin}
+                            onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full px-2 py-1 outline-none text-xs"
+                            style={{ fontFamily: "'Share Tech Mono', monospace", letterSpacing: '2px', background: 'rgba(0,212,255,0.05)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.2)', borderRadius: '3px' }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-[rgba(0,212,255,0.5)] font-mono uppercase">Confirm New PIN</label>
+                          <input
+                            type="password"
+                            maxLength="4"
+                            placeholder="••••"
+                            value={confirmPin}
+                            onChange={(e) => setConfirmPin(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full px-2 py-1 outline-none text-xs"
+                            style={{ fontFamily: "'Share Tech Mono', monospace", letterSpacing: '2px', background: 'rgba(0,212,255,0.05)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.2)', borderRadius: '3px' }}
+                          />
+                        </div>
+
+                        {pinError && (
+                          <div className="text-[10px] text-red-400 font-mono text-center mt-1">
+                            {pinError}
+                          </div>
+                        )}
+                        {pinSuccess && (
+                          <div className="text-[10px] text-green-400 font-mono text-center mt-1">
+                            {pinSuccess}
+                          </div>
+                        )}
+
+                        <div className="flex gap-1.5 mt-2">
+                          <button
+                            onClick={() => {
+                              setIsChangingPin(false);
+                              setPinError('');
+                              setPinSuccess('');
+                              setCurrentPin('');
+                              setNewPin('');
+                              setConfirmPin('');
+                            }}
+                            className="no-drag w-1/2 py-1 text-[10px] transition-all"
+                            style={{
+                              fontFamily: "'Share Tech Mono', monospace",
+                              background: 'rgba(255,71,87,0.05)',
+                              border: '1px solid rgba(255,71,87,0.2)',
+                              color: '#ff4757',
+                              borderRadius: '3px',
+                            }}
+                          >
+                            CANCEL
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (currentPin.length !== 4 || newPin.length !== 4) {
+                                setPinError('PINs must be 4 digits.');
+                                return;
+                              }
+                              if (newPin !== confirmPin) {
+                                setPinError('New PINs do not match.');
+                                return;
+                              }
+                              setPinError('');
+                              onUpdateSetting('change_pin', { currentPin, newPin });
+                            }}
+                            className="no-drag w-1/2 py-1 text-[10px] transition-all"
+                            style={{
+                              fontFamily: "'Share Tech Mono', monospace",
+                              background: 'rgba(0,212,255,0.1)',
+                              border: '1px solid rgba(0,212,255,0.3)',
+                              color: '#00d4ff',
+                              borderRadius: '3px',
+                            }}
+                          >
+                            SAVE
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

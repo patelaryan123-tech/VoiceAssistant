@@ -65,6 +65,33 @@
   --neon-glow-sm:    0 0 6px rgba(0,120,180,0.3);
 }
 
+/* ─── JARVIS Mode Theme (Iron Man Red/Gold/Orange) ───────────── */
+[data-theme="jarvis"] {
+  --bg:              #0a0102;
+  --bg-secondary:    #120103;
+  --bg-panel:        rgba(22, 2, 4, 0.97);
+  --bg-glass:        rgba(255, 71, 87, 0.03);
+  --bg-input:        rgba(255, 71, 87, 0.06);
+  --border:          rgba(255, 71, 87, 0.15);
+  --border-accent:   rgba(255, 159, 67, 0.55);
+  --border-strong:   rgba(255, 71, 87, 0.7);
+  --text-primary:    #ffe5e8;
+  --text-muted:      #8a4a50;
+  --text-dim:        #cc7a81;
+  --shadow-color:    rgba(255, 71, 87, 0.18);
+  --shadow-strong:   rgba(255, 159, 67, 0.35);
+  --bottom-bar-bg:   rgba(22, 2, 4, 0.92);
+  --bottom-bar-border: rgba(255, 159, 67, 0.35);
+  --btn-bg:          rgba(255, 71, 87, 0.08);
+  --btn-hover:       rgba(255, 159, 67, 0.15);
+  --scroll-thumb:    rgba(255, 71, 87, 0.2);
+  --scroll-hover:    rgba(255, 159, 67, 0.4);
+  --sidebar-bg:      rgba(15, 1, 2, 0.99);
+  --holo-grid:       rgba(255, 71, 87, 0.04);
+  --neon-glow:       0 0 10px rgba(255,71,87,0.6), 0 0 30px rgba(255,159,67,0.3), 0 0 60px rgba(255,71,87,0.1);
+  --neon-glow-sm:    0 0 6px rgba(255,71,87,0.5), 0 0 15px rgba(255,159,67,0.2);
+}
+
 /* ─── Selective transitions ──────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;

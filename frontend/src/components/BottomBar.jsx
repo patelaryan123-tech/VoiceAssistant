@@ -1,19 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Settings, Send, ChevronUp, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import WaveformVisualizer from './WaveformVisualizer';
 
 const SHORTCUTS = [
+  { label: '🛡️ SECURITY AUDIT', action: 'security' },
+  { label: '✨ FEATURES HUB', action: 'features' },
+  { label: '⚙️ TELEMETRY', action: 'telemetry' },
+  { label: '🎭 PERSONAS', action: 'personas' },
+  { label: '🔐 VAULT', action: 'vault' },
   { label: '⛅ WEATHER', cmd: 'weather in Mumbai' },
   { label: '📡 NEWS', cmd: 'news' },
-  { label: '🖥 SYS STATS', cmd: 'system dashboard' },
   { label: '☀️ BRIEFING', cmd: 'morning briefing' },
-  { label: '📈 BITCOIN', cmd: 'bitcoin price' },
-  { label: '🌐 MY IP', cmd: "what's my IP" },
-  { label: '📋 CLIPBOARD', cmd: 'read my clipboard' },
   { label: '🔔 REMINDERS', cmd: 'show reminders' },
 ];
 
-const BottomBar = ({ isListening, onToggleListen, onTextSubmit, onOpenSettings }) => {
+const BottomBar = ({
+  isListening, onToggleListen, onTextSubmit, onOpenSettings,
+  onOpenFeatures, onOpenTelemetry, onOpenPersonas, onOpenVault, onOpenSecurity
+}) => {
   const [text, setText] = useState('');
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [cmdHistory, setCmdHistory] = useState([]);
@@ -55,14 +60,36 @@ const BottomBar = ({ isListening, onToggleListen, onTextSubmit, onOpenSettings }
       <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
         {SHORTCUTS.map(s => (
           <button
-            key={s.cmd}
-            onClick={() => submit(s.cmd)}
+            key={s.label}
+            onClick={() => {
+              if (s.action === 'features') { if (onOpenFeatures) onOpenFeatures(); }
+              else if (s.action === 'security') { if (onOpenSecurity) onOpenSecurity(); }
+              else if (s.action === 'telemetry') { if (onOpenTelemetry) onOpenTelemetry(); }
+              else if (s.action === 'personas') { if (onOpenPersonas) onOpenPersonas(); }
+              else if (s.action === 'vault') { if (onOpenVault) onOpenVault(); }
+              else { submit(s.cmd); }
+            }}
             className="shortcut-chip shrink-0 no-drag"
+            style={s.action === 'features' ? { borderColor: 'rgba(244,63,94,0.5)', color: '#f43f5e' } : s.action ? { borderColor: 'rgba(0,212,255,0.4)', color: '#00d4ff' } : {}}
           >
             {s.label}
           </button>
         ))}
       </div>
+
+      {/* Waveform visualizer — shown when listening */}
+      <AnimatePresence>
+        {isListening && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 48 }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <WaveformVisualizer isListening={isListening} height={48} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main bar */}
       <div
